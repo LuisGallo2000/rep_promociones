@@ -26,8 +26,6 @@
             <td>{{ promo.fecha_fin }}</td>
             <td>{{ promo.get_tipo_display }}</td>
             <td>
-                <a href="{% url 'crear_condicion' promo.id %}">Añadir Condición</a>
-                <a href="{% url 'detalle_promocion' promo.id %}" class="btn btn-sm btn-info">Ver Detalle</a>
                 <a href="{% url 'editar_promocion' promo.id %}" class="btn btn-sm btn-primary">Editar</a>
             </td>
         </tr>

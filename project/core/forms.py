@@ -1,5 +1,5 @@
 from django import forms
-from .models import Promocion, CondicionPromocion, BeneficioPromocion, EscalaPromocion
+from .models import Articulo, GrupoProveedor, Linea, Promocion, CondicionPromocion, BeneficioPromocion, EscalaPromocion
 
 class PromocionForm(forms.ModelForm):
     class Meta:
@@ -11,9 +11,34 @@ class PromocionForm(forms.ModelForm):
         }
 
 class CondicionPromocionForm(forms.ModelForm):
+    articulo_nombre = forms.CharField(required=False, label='Artículo')
+    linea_nombre = forms.CharField(required=False, label='Línea')
+    grupo_nombre = forms.CharField(required=False, label='Grupo Proveedor')
+
     class Meta:
         model = CondicionPromocion
-        fields = '__all__'
+        fields = [
+            'cantidad_minima', 'monto_minimo', 
+            'cantidad_maxima', 'monto_maximo', 'obligatoria',
+            'articulo', 'linea', 'grupo'  # necesarios aunque se oculten
+        ]
+        widgets = {
+            'articulo': forms.HiddenInput(),
+            'linea': forms.HiddenInput(),
+            'grupo': forms.HiddenInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Precargar nombres si el formulario tiene una instancia
+        if self.instance and self.instance.pk:
+            if self.instance.articulo:
+                self.fields['articulo_nombre'].initial = self.instance.articulo.nombre
+            if self.instance.linea:
+                self.fields['linea_nombre'].initial = self.instance.linea.nombre
+            if self.instance.grupo:
+                self.fields['grupo_nombre'].initial = self.instance.grupo.nombre
 
 class BeneficioPromocionForm(forms.ModelForm):
     class Meta:

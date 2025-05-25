@@ -1,0 +1,51 @@
+{% extends "core/base.html" %}
+{% block content %}
+<h2>{% if form.instance.pk %}Editar{% else %}Crear{% endif %} Condición</h2>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="form-group">
+        <label for="articulo_nombre">Artículo (nombre)</label>
+        <input type="text" name="articulo_nombre" id="articulo_nombre" class="form-control" placeholder="Ej: VINO BORGOÑA ABOCADO 750ML X12" value="{{ form.initial.articulo }}">
+    </div>
+
+    <div class="form-group">
+        <label for="linea_nombre">Línea (nombre)</label>
+        <input type="text" name="linea_nombre" id="linea_nombre" class="form-control" placeholder="Ej: Detergentes" value="{{ form.initial.linea }}">
+    </div>
+
+    <div class="form-group">
+        <label for="grupo_nombre">Grupo proveedor (nombre)</label>
+        <input type="text" name="grupo_nombre" id="grupo_nombre" class="form-control" placeholder="Ej: Grupo BOLÍVAR" value="{{ form.initial.grupo }}">
+    </div>
+
+    <div class="form-group">
+        <label for="cantidad_minima">Cantidad mínima</label>
+        {{ form.cantidad_minima }}
+    </div>
+
+    <div class="form-group">
+        <label for="monto_minimo">Monto mínimo</label>
+        {{ form.monto_minimo }}
+    </div>
+
+    <div class="form-group">
+        <label for="cantidad_maxima">Cantidad máxima</label>
+        {{ form.cantidad_maxima }}
+    </div>
+
+    <div class="form-group">
+        <label for="monto_maximo">Monto máximo</label>
+        {{ form.monto_maximo }}
+    </div>
+
+    <div class="form-group">
+        <label for="obligatoria">¿Es obligatoria?</label>
+        {{ form.obligatoria }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'listar_promociones' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

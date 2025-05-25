@@ -1,0 +1,116 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+<h2 class="text-xl font-bold mb-4">Crear Pedido</h2>
+
+<form method="POST" onsubmit="return validarFormulario()">
+    {% csrf_token %}
+    
+    <!-- Cliente -->
+    <div class="mb-4">
+        <label for="cliente" class="block font-semibold">Cliente:</label>
+        <select name="cliente" id="cliente" required class="border p-2 w-full rounded">
+            <option value="">Seleccione un cliente</option>
+            {% for cliente in clientes %}
+            <option value="{{ cliente.cliente_id }}">{{ cliente.nombres }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Canal -->
+    <div class="mb-4">
+        <label for="canal" class="block font-semibold">Canal:</label>
+        <select name="canal" id="canal" required class="border p-2 w-full rounded">
+            <option value="">Seleccione un canal</option>
+            {% for canal in canales %}
+            <option value="{{ canal.canal_id }}">{{ canal.nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Sucursal -->
+    <div class="mb-4">
+        <label for="sucursal" class="block font-semibold">Sucursal:</label>
+        <select name="sucursal" id="sucursal" required class="border p-2 w-full rounded">
+            <option value="">Seleccione una sucursal</option>
+            {% for sucursal in sucursales %}
+            <option value="{{ sucursal.sucursal_id }}">{{ sucursal.nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Artículos -->
+    <div id="articulos-container" class="space-y-4 mb-4">
+        <div class="articulo-item flex gap-4 items-center">
+            <select name="articulo_id[]" required class="border p-2 rounded w-1/2">
+                <option value="">Seleccione un artículo</option>
+                {% for articulo in articulos %}
+                <option value="{{ articulo.articulo_id }}">{{ articulo.descripcion }} ({{ articulo.unidad_medida }})</option>
+                {% endfor %}
+            </select>
+
+            <input type="number" name="cantidad[]" min="1" value="1" required class="border p-2 rounded w-24" />
+            <button type="button" onclick="eliminarArticulo(this)" class="text-red-500">Eliminar</button>
+        </div>
+    </div>
+
+    <button type="button" onclick="agregarArticulo()" class="bg-blue-500 text-white px-4 py-2 rounded">Agregar Artículo</button>
+
+    <!-- Botón Guardar -->
+    <div class="mt-6">
+        <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded">Guardar Pedido</button>
+    </div>
+</form>
+
+<!-- Script para clonar artículos -->
+<script>
+    function agregarArticulo() {
+        const contenedor = document.getElementById("articulos-container");
+        const item = document.querySelector(".articulo-item");
+        const clon = item.cloneNode(true);
+
+        clon.querySelector('select').selectedIndex = 0;
+        clon.querySelector('input[name="cantidad"]').value = 1;
+
+        contenedor.appendChild(clon);
+    }
+
+    function eliminarArticulo(btn) {
+        const contenedor = document.getElementById("articulos-container");
+        if (contenedor.children.length > 1) {
+            btn.parentElement.remove();
+        }
+    }
+
+    // Función de validación antes de enviar el formulario
+    function validarFormulario() {
+        const cliente = document.getElementById('cliente').value;
+        const canal = document.getElementById('canal').value;
+        const sucursal = document.getElementById('sucursal').value;
+        const articulos = document.getElementsByName('articulo_id[]');
+        const cantidades = document.getElementsByName('cantidad[]');
+
+        // Verificar si cliente, canal, sucursal están seleccionados
+        if (!cliente || !canal || !sucursal) {
+            alert("Debe seleccionar un cliente, un canal y una sucursal.");
+            return false;
+        }
+
+        // Verificar si al menos un artículo y cantidad están seleccionados
+        let articuloValido = false;
+        for (let i = 0; i < articulos.length; i++) {
+            if (articulos[i].value && cantidades[i].value >= 1) {
+                articuloValido = true;
+                break;
+            }
+        }
+
+        if (!articuloValido) {
+            alert("Debe seleccionar al menos un artículo y una cantidad.");
+            return false;
+        }
+
+        return true;
+    }
+</script>
+{% endblock %}
