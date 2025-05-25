@@ -1,0 +1,114 @@
+{% extends 'core/login/app.html' %}
+{% load static %}
+{% block title %}Sistema - Login{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
+<script src="https://kit.fontawesome.com/a81368914c.js"></script>
+
+<video autoplay loop muted playsinline controlslist="nodownload" class="video-background d-none d-lg-block">
+  <source src="{% static 'video/fondo.mp4' %}" type="video/mp4">
+  Tu navegador no soporta el video.
+</video>
+
+<div class="d-flex flex-column flex-lg-row align-items-center justify-content-center"
+     style="min-height: 100vh; position: relative; z-index: 1;">
+  <div class="login-content p-4" style="max-width: 400px; width: 100%;">
+    <form method="post" action="{% url 'login' %}" novalidate>
+      {% csrf_token %}
+
+      <div class="text-center mb-4">
+        <img src="{% static 'img/login.png' %}" alt="Login" style="width: 80px;">
+        <h2 class="title mt-3">BIENVENIDO</h2>
+      </div>
+
+      
+      <!-- 📣 Mensajes globales -->
+      {% if messages %}
+        {% for message in messages %}
+          {% if message.tags == "error" %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% else %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+
+      <!-- Usuario -->
+      <div class="mb-3">
+        <div class="text-danger small fw-semibold d-none" id="user-error">Por favor ingresa tu usuario.</div>
+        <div class="input-div one">
+          <div class="i"><i class="fas fa-user text-danger"></i></div>
+          <div class="div w-100">
+            <input type="text" name="username" class="input form-control" placeholder="Usuario"
+                   value="{{ form.username.value|default:'' }}">
+          </div>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="mb-3">
+        <div class="text-danger small fw-semibold d-none" id="pass-error">Por favor ingresa tu contraseña.</div>
+        <div class="input-div pass">
+          <div class="i"><i class="fas fa-lock text-danger"></i></div>
+          <div class="div w-100">
+            <input type="password" name="password" class="input form-control" placeholder="Password">
+          </div>
+        </div>
+      </div>
+
+      <a href="#" class="d-block text-end">¿Olvidaste tu contraseña?</a>
+      <input type="submit" class="btn btn-danger mt-3 w-100" value="ACCEDER">
+    </form>
+  </div>
+</div>
+<!-- ✅ Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.querySelector("form");
+  const usernameInput = form.querySelector('input[name="username"]');
+  const passwordInput = form.querySelector('input[name="password"]');
+  const userError = document.getElementById('user-error');
+  const passError = document.getElementById('pass-error');
+
+  function clearErrorsOnInput(input, errorDiv) {
+    input.addEventListener("input", () => {
+      input.classList.remove("is-invalid");
+      errorDiv.classList.add("d-none");
+    });
+  }
+
+  clearErrorsOnInput(usernameInput, userError);
+  clearErrorsOnInput(passwordInput, passError);
+
+  form.addEventListener("submit", function (event) {
+    let valid = true;
+
+    if (usernameInput.value.trim() === "") {
+      usernameInput.classList.add("is-invalid");
+      userError.classList.remove("d-none");
+      valid = false;
+    }
+
+    if (passwordInput.value.trim() === "") {
+      passwordInput.classList.add("is-invalid");
+      passError.classList.remove("d-none");
+      valid = false;
+    }
+
+    if (!valid) {
+      event.preventDefault();
+    }
+  });
+});
+</script>
+{% endblock %}

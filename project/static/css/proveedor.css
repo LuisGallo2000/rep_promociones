@@ -1,0 +1,181 @@
+/* Contenedor input + icono */
+.input-div {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background-color: white;
+  transition: border-color 0.3s;
+}
+.input-div:focus-within {
+  border-color: #3b82f6; /* azul */
+}
+.input-div i {
+  color: #ef4444; /* rojo */
+  margin-right: 0.75rem;
+  min-width: 1.5rem;
+  text-align: center;
+  font-size: 1.25rem;
+}
+.input-div input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 1rem;
+  background-color: transparent;
+}
+
+/* Mensajes de error arriba */
+.help {
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+.help.is-danger {
+  color: #f14668;
+}
+.is-hidden {
+  display: none;
+}
+
+/* Toggle Switch para Estado */
+.toggle-switch {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  display: inline-block;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  background-color: #ccc;
+  border-radius: 34px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: 0.4s;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.4s;
+}
+input:checked + .slider {
+  background-color: #48c78e; /* verde */
+}
+input:not(:checked) + .slider {
+  background-color: #f14668; /* rojo */
+}
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+/* Texto Estado al lado del toggle */
+.estado-label {
+  margin-left: 0.75rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #363636;
+  user-select: none;
+}
+
+  .form-container {
+    max-width: 600px;
+    margin: 3rem auto;
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    padding: 2rem 2.5rem;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  .form-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-header img {
+    width: 50px;
+    margin-right: 15px;
+  }
+
+  .form-header h2 {
+    font-size: 1.8rem;
+    color: #333;
+    margin: 0;
+  }
+
+  .form-group {
+    margin-bottom: 1.2rem;
+  }
+
+  .form-label {
+    font-weight: 600;
+    display: block;
+    margin-bottom: .4rem;
+    color: #444;
+  }
+
+  .form-control {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    background: #f9f9f9;
+  }
+
+  .form-control input {
+    border: none;
+    outline: none;
+    background: transparent;
+    flex: 1;
+    font-size: 1rem;
+    padding-left: 0.5rem;
+  }
+
+  .form-control i {
+    color: #888;
+  }
+
+  .form-error {
+    color: #e74c3c;
+    font-size: 0.85rem;
+    margin-top: 0.3rem;
+    display: none;
+  }
+
+  .toggle-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1.2rem;
+  }
+
+  .btn-submit {
+    width: 100%;
+    margin-top: 1.5rem;
+    padding: 0.75rem;
+    font-weight: bold;
+    color: white;
+    background-color: #3498db;
+    border: none;
+    border-radius: 0.5rem;
+    transition: background 0.3s ease;
+  }
+
+  .btn-submit:hover {
+    background-color: #2980b9;
+  }

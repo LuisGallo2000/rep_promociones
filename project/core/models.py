@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 # === CATÁLOGOS BASE ===
 
@@ -10,24 +11,26 @@ class Sucursal(models.Model):
     nombre = models.CharField(max_length=100)
 
 class CanalCliente(models.Model):
+    canal_id = models.CharField(primary_key=True, max_length=20, editable=False)
     nombre = models.CharField(max_length=50)
 
 class GrupoProveedor(models.Model):
-    grupo_id = models.IntegerField(primary_key=True)
+    grupo_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     codigo = models.CharField(max_length=20)
     nombre = models.CharField(max_length=100)
     estado = models.BooleanField(default=True)
 
 class Linea(models.Model):
-    linea_id = models.IntegerField(primary_key=True)
+    linea_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     grupo = models.ForeignKey(GrupoProveedor, on_delete=models.CASCADE)
     codigo = models.CharField(max_length=20)
     nombre = models.CharField(max_length=100)
+    estado = models.BooleanField(default=True)
 
 class Articulo(models.Model):
-    articulo_id = models.IntegerField(primary_key=True)
+    articulo_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     codigo_articulo = models.CharField(max_length=50)
     codigo_barras = models.CharField(max_length=50, null=True, blank=True)
@@ -60,6 +63,20 @@ class Vendedor(models.Model):
     territorio = models.CharField(max_length=100)
     rol_id = models.IntegerField()
 
+# === CLIENTE ===
+
+class Cliente(models.Model):
+    TIPO_CLIENTE = [
+        ('mayorista', 'Mayorista'),
+        ('cobertura', 'Cobertura'),
+        ('todos', 'Todos')
+    ]
+
+    nombres = models.CharField(max_length=100)
+    canal = models.ForeignKey(CanalCliente, on_delete=models.SET_NULL, null=True, blank=True)
+    nro_documento = models.CharField(max_length=20)
+    tipo_documento = models.CharField(max_length=10)
+    tipo_cliente = models.CharField(max_length=20, choices=TIPO_CLIENTE, default='todos')
 
 # === PROMOCIONES ===
 
@@ -86,15 +103,21 @@ class Promocion(models.Model):
     tipo = models.CharField(max_length=20, choices=TIPO_PROMOCION)
     aplica_por = models.CharField(max_length=30, choices=APLICA_POR)
     es_escalonada = models.BooleanField(default=False)
+    tipo_cliente = models.CharField(max_length=20, choices=Cliente.TIPO_CLIENTE, default='todos')
 
 class CondicionPromocion(models.Model):
     promocion = models.ForeignKey(Promocion, on_delete=models.CASCADE)
+    
     articulo = models.ForeignKey(Articulo, on_delete=models.SET_NULL, null=True, blank=True)
     linea = models.ForeignKey(Linea, on_delete=models.SET_NULL, null=True, blank=True)
+    grupo = models.ForeignKey(GrupoProveedor, on_delete=models.SET_NULL, null=True, blank=True)
+
     cantidad_minima = models.IntegerField(null=True, blank=True)
     monto_minimo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
     cantidad_maxima = models.IntegerField(null=True, blank=True)
     monto_maximo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
     obligatoria = models.BooleanField(default=False)
 
 class BeneficioPromocion(models.Model):
@@ -112,20 +135,22 @@ class BeneficioPromocion(models.Model):
 class EscalaPromocion(models.Model):
     promocion = models.ForeignKey(Promocion, on_delete=models.CASCADE)
     condicion = models.ForeignKey(CondicionPromocion, on_delete=models.CASCADE)
-    beneficio = models.ForeignKey(BeneficioPromocion, on_delete=models.CASCADE)
+    
     desde_monto = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     hasta_monto = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     desde_cantidad = models.IntegerField(null=True, blank=True)
     hasta_cantidad = models.IntegerField(null=True, blank=True)
 
+    # Beneficio directamente ligado a la escala
+    tipo_beneficio = models.CharField(max_length=20, choices=BeneficioPromocion.TIPO_BENEFICIO)
+    articulo_bonificado = models.ForeignKey(Articulo, on_delete=models.SET_NULL, null=True, blank=True, related_name='bonificaciones_escala')
+    cantidad_bonificada = models.IntegerField(null=True, blank=True)
+    porcentaje_descuento = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
+    # Escalonamiento proporcional
+    proporcional = models.BooleanField(default=False)
 
 # === PEDIDOS ===
-
-class Cliente(models.Model):
-    nombres = models.CharField(max_length=100)
-    canal = models.ForeignKey(CanalCliente, on_delete=models.SET_NULL, null=True, blank=True)
-    nro_documento = models.CharField(max_length=20)
-    tipo_documento = models.CharField(max_length=10)
 
 class Pedido(models.Model):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
