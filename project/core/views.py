@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from django.db.models import Q, Sum, F, ExpressionWrapper, DecimalField, Count, Min, Max
-from django.db import transaction # Para atomicidad en la aplicación de promociones
+from django.db import transaction
 from decimal import InvalidOperation
 
 
@@ -15,7 +15,7 @@ from .models import (
     Cliente, Promocion, CondicionPromocion, EscalaPromocion, BeneficioPromocion,
     Pedido, DetallePedido, PromocionAplicada
 )
-# Asumo que tienes forms.py con los ModelForms necesarios
+
 from .forms import (
     PromocionModelForm, CondicionPromocionFormSet, EscalaPromocionFormSet, BeneficioDirectoPromocionFormSet, BeneficioEscalaPromocionFormSet
 )
@@ -25,9 +25,8 @@ from .forms import PromocionModelForm, CondicionPromocionFormSet, EscalaPromocio
 
 # === UTILIDADES ===
 def get_active_promotions_for_pedido(pedido):
-    # Asegurarse que pedido.fecha sea un objeto date
     now_date = pedido.fecha
-    if hasattr(pedido.fecha, 'date') and callable(pedido.fecha.date): # Si es datetime, convertir a date
+    if hasattr(pedido.fecha, 'date') and callable(pedido.fecha.date):
         now_date = pedido.fecha.date()
     
     print(f"\n--- get_active_promotions_for_pedido para Pedido ID: {pedido.pedido_id} ---")
@@ -44,13 +43,13 @@ def get_active_promotions_for_pedido(pedido):
         return Promocion.objects.none()
 
     # 2. Filtro por Empresa (a través de la sucursal del pedido)
-    empresa_filters = Q() # Filtro vacío por defecto
+    empresa_filters = Q() 
     if hasattr(pedido.sucursal, 'empresa') and pedido.sucursal.empresa:
         empresa_filters = Q(empresa=pedido.sucursal.empresa)
         print(f"  Paso 2 - Filtro Empresa: {pedido.sucursal.empresa.nombre} (ID: {pedido.sucursal.empresa.empresa_id})")
     else:
         print("  Paso 2 - ADVERTENCIA: Pedido.sucursal no tiene empresa. No se puede filtrar por empresa principal.")
-        return Promocion.objects.none() # No continuar si no se puede determinar la empresa
+        return Promocion.objects.none()
 
     promociones_paso_2 = promociones_paso_1.filter(empresa_filters)
     print(f"  Paso 2 (después de filtro empresa): {promociones_paso_2.count()} promociones. Nombres: {[p.nombre for p in promociones_paso_2]}")
@@ -58,7 +57,6 @@ def get_active_promotions_for_pedido(pedido):
         return Promocion.objects.none()
 
     # 3. Filtro por Sucursal (de la promoción)
-    # Una promoción puede aplicar a una sucursal específica o a todas (sucursal=None en la promo)
     sucursal_filters = Q(sucursal=pedido.sucursal) | Q(sucursal__isnull=True)
     print(f"  Paso 3 - Filtro Sucursal: {pedido.sucursal.nombre} (ID: {pedido.sucursal.sucursal_id}) o promoción sin sucursal.")
     
@@ -72,7 +70,7 @@ def get_active_promotions_for_pedido(pedido):
     if pedido.canal:
         canal_filters = Q(canal_cliente_aplicable=pedido.canal) | Q(canal_cliente_aplicable__isnull=True)
         print(f"  Paso 4 - Filtro Canal Cliente: {pedido.canal.nombre} (ID: {pedido.canal.canal_id}) o promoción sin canal.")
-    else: # Si el pedido no tiene canal, solo aplican promos sin canal específico
+    else:
         canal_filters = Q(canal_cliente_aplicable__isnull=True)
         print("  Paso 4 - Pedido sin canal, filtrando promociones sin canal específico.")
     
@@ -82,41 +80,29 @@ def get_active_promotions_for_pedido(pedido):
         return Promocion.objects.none()
 
     # 5. Filtro por Tipo de Cliente (del pedido)
-    tipo_cliente_filters_applied = Q() # Usaremos este para construir el filtro final
+    tipo_cliente_filters_applied = Q()
     
     cliente_tipo_actual = None
     if hasattr(pedido.cliente, 'tipo_cliente') and pedido.cliente.tipo_cliente:
-        cliente_tipo_actual = pedido.cliente.tipo_cliente.lower() # Convertir a minúsculas para consistencia
+        cliente_tipo_actual = pedido.cliente.tipo_cliente.lower()
         print(f"  Paso 5 - Tipo de Cliente del Pedido (normalizado): '{cliente_tipo_actual}'")
 
         if cliente_tipo_actual == 'todos':
-            # Si el cliente es 'todos', solo le aplican promociones 'todos'.
             tipo_cliente_filters_applied = Q(tipo_cliente='todos')
             print(f"    Cliente es tipo 'todos', buscando SOLO promociones para 'todos'. Filtro Q: {tipo_cliente_filters_applied}")
         else:
-            # Si el cliente tiene un tipo específico (ej. 'mayorista'),
-            # la promo debe ser para ESE tipo O para 'todos'.
             tipo_cliente_filters_applied = Q(tipo_cliente=cliente_tipo_actual) | Q(tipo_cliente='todos')
             print(f"    Buscando promociones para tipo '{cliente_tipo_actual}' o 'todos'. Filtro Q: {tipo_cliente_filters_applied}")
     else:
-        # Si el cliente no tiene tipo_cliente o es un string vacío.
-        # Esto es un estado de datos anómalo. Por seguridad, podríamos no aplicar ninguna promo de tipo,
-        # o solo las 'todos'. Para ser conservadores, no apliquemos ninguna si el tipo de cliente es inválido.
         print(f"  Paso 5 - ADVERTENCIA: Cliente no tiene tipo_cliente definido o es vacío. No se aplicarán promociones basadas en tipo de cliente específico (excepto 'todos' si se decide).")
-        # Si quieres que en este caso solo apliquen promos 'todos':
         tipo_cliente_filters_applied = Q(tipo_cliente='todos')
-        # Si quieres que no aplique ninguna promo si el cliente no tiene tipo:
-        # print("    Devolviendo QuerySet vacío porque el cliente no tiene tipo.")
-        # return Promocion.objects.none()
 
-    # Antes de filtrar, veamos las promociones que llegaron hasta aquí y sus tipos de cliente
     print(f"    Promociones ANTES del filtro de tipo cliente ({promociones_paso_4.count()}):")
     for p_temp in promociones_paso_4:
         print(f"      - Promo: '{p_temp.nombre}', Tipo Cliente Promo: '{p_temp.tipo_cliente}'")
 
     promociones_finales = promociones_paso_4.filter(tipo_cliente_filters_applied).order_by('prioridad', 'nombre')
     print(f"  Paso 5 (después de filtro tipo cliente): {promociones_finales.count()} promociones. Nombres: {[p.nombre for p in promociones_finales]}")
-    # ... (el resto de la función, return promociones_finales) ...
     print(f"--- Fin get_active_promotions_for_pedido ---")
     return promociones_finales
 
@@ -128,21 +114,18 @@ def calculate_condition_totals(pedido_detalles, promocion):
     """
     monto_total_condicion = Decimal('0.00')
     cantidad_total_condicion = 0
-    items_que_cumplen_condicion = [] # Guardamos los items para posible descuento sobre ellos
+    items_que_cumplen_condicion = [] 
 
-    # Obtener todos los items del pedido que podrían aplicar a alguna condición de la promo
     condiciones_promo = promocion.condiciones.all()
     if not condiciones_promo.exists() and promocion.aplica_por == 'productos_condicion':
-        return Decimal('0.00'), 0, [] # No hay condiciones para productos_condicion, no aplica
+        return Decimal('0.00'), 0, [] 
 
-    # Si aplica_por es total_pedido, se evalúa el total del pedido directamente
     if promocion.aplica_por == 'total_pedido':
         monto_total_condicion = sum(d.subtotal_linea for d in pedido_detalles if not d.es_bonificacion)
         cantidad_total_condicion = sum(d.cantidad for d in pedido_detalles if not d.es_bonificacion)
         items_que_cumplen_condicion = [d for d in pedido_detalles if not d.es_bonificacion]
         return monto_total_condicion, cantidad_total_condicion, items_que_cumplen_condicion
 
-    # Para productos_condicion o conjunto_obligatorio
     articulos_en_condicion_ids = set()
     lineas_en_condicion_ids = set()
     grupos_en_condicion_ids = set()
@@ -167,8 +150,6 @@ def calculate_condition_totals(pedido_detalles, promocion):
         if detalle.articulo.grupo_id in grupos_en_condicion_ids:
             cumple_alguna_condicion_de_producto = True
         
-        # Si la promoción no especifica artículos/líneas/grupos (condiciones vacías)
-        # y aplica_por es 'productos_condicion', se considera que todos los productos aplican.
         if not (articulos_en_condicion_ids or lineas_en_condicion_ids or grupos_en_condicion_ids) and \
            promocion.aplica_por == 'productos_condicion':
             cumple_alguna_condicion_de_producto = True
@@ -184,12 +165,10 @@ def calculate_condition_totals(pedido_detalles, promocion):
 def check_conjunto_obligatorio(pedido_detalles, promocion):
     """Verifica si se cumplen todas las condiciones obligatorias para una promo de conjunto."""
     if promocion.aplica_por != 'conjunto_obligatorio':
-        return True # No es de este tipo, no aplica la restricción
+        return True 
 
     condiciones_obligatorias = promocion.condiciones.filter(obligatoria_en_conjunto=True)
     if not condiciones_obligatorias.exists():
-         # Si es conjunto_obligatorio pero no tiene condiciones marcadas, es un error de configuración.
-         # O, si se permite, significa que no hay nada que obligar. Asumamos error config por ahora.
         return False
 
     for cond_obl in condiciones_obligatorias:
@@ -208,14 +187,14 @@ def check_conjunto_obligatorio(pedido_detalles, promocion):
             
             if cumple_item_condicion:
                 if cond_obl.cantidad_minima and detalle.cantidad < cond_obl.cantidad_minima:
-                    return False # No cumple la cantidad mínima para este item del conjunto
+                    return False 
                 encontrado_en_pedido = True
-                break # Pasa al siguiente item obligatorio de la condición
+                break 
         
         if not encontrado_en_pedido:
-            return False # Faltó un item obligatorio del conjunto
+            return False 
             
-    return True # Todas las condiciones obligatorias del conjunto se cumplieron
+    return True 
 
 
 # === MOTOR DE PROMOCIONES ===
@@ -233,22 +212,17 @@ def procesar_y_aplicar_promociones_a_pedido(request, pedido_id):
     # Resetear descuentos en líneas existentes (no bonificadas)
     for detalle in pedido.detalles.filter(es_bonificacion=False):
         detalle.descuento_linea = Decimal('0.00')
-        # Si no hay precios, subtotal_linea y total_linea ya son 0 y se mantienen así.
-        # Si hubiera precios, se recalcularía total_linea: detalle.total_linea = detalle.subtotal_linea
-        detalle.save() # Guardar el reseteo del descuento
+        detalle.save()
     
     pedido.descuento_total = Decimal('0.00')
-    # No guardar pedido aquí, se guardará al final con todos los totales actualizados.
 
     # 2. Obtener detalles activos (no bonificaciones) del pedido para evaluación
-    # Es importante recargar desde la BD por si el save() anterior no se hizo o para asegurar datos frescos.
     pedido_detalles_activos = list(pedido.detalles.filter(es_bonificacion=False))
     if not pedido_detalles_activos:
         print("No hay detalles activos en el pedido para aplicar promociones.")
         messages.info(request, "El pedido está vacío, no se aplicaron nuevas promociones.")
-        # Asegurar que los totales del pedido reflejen esto (probablemente 0)
         pedido.subtotal = sum(d.subtotal_linea for d in pedido.detalles.filter(es_bonificacion=False))
-        pedido.total_pedido = pedido.subtotal - pedido.descuento_total # descuento_total es 0
+        pedido.total_pedido = pedido.subtotal - pedido.descuento_total 
         pedido.save()
         return redirect('vista_detalle_pedido', pedido_id=pedido.pedido_id)
 
@@ -280,20 +254,19 @@ def procesar_y_aplicar_promociones_a_pedido(request, pedido_id):
                 print(f"  NO CUMPLE CONJUNTO OBLIGATORIO. Saltando promo.")
                 continue
         
-        beneficios_a_aplicar_config = [] # Lista de (beneficio_model_obj, multiplicador_calculado)
+        beneficios_a_aplicar_config = [] 
         escala_que_aplico = None
 
         if promo.es_escalonada:
             print("  La promoción ES ESCALONADA.")
-            escalas_promo = promo.escalas.order_by('-desde_cantidad', '-desde_monto') # De mayor a menor para tomar la mejor aplicable
+            escalas_promo = promo.escalas.order_by('-desde_cantidad', '-desde_monto') 
             for escala in escalas_promo:
                 print(f"    Evaluando Escala: '{escala.descripcion_escala}' (DesdeCant: {escala.desde_cantidad}, HastaCant: {escala.hasta_cantidad}, DesdeMonto: {escala.desde_monto}, HastaMonto: {escala.hasta_monto})")
                 cumple_esta_escala = False
-                # Priorizar cantidad si ambos (desde_cantidad y desde_monto) están definidos en la escala
                 if escala.desde_cantidad is not None:
                     if cantidad_condicion >= escala.desde_cantidad and (escala.hasta_cantidad is None or cantidad_condicion <= escala.hasta_cantidad):
                         cumple_esta_escala = True
-                elif escala.desde_monto is not None: # Solo si no hay desde_cantidad o no cumplió por cantidad
+                elif escala.desde_monto is not None:
                      if monto_condicion >= escala.desde_monto and (escala.hasta_monto is None or monto_condicion <= escala.hasta_monto):
                         cumple_esta_escala = True
                 
@@ -313,19 +286,15 @@ def procesar_y_aplicar_promociones_a_pedido(request, pedido_id):
                             multiplicador_benef_escala = temp_multiplicador
                         else:
                             print("      Multiplicador de escala proporcional es 0. No aplica beneficios de esta escala.")
-                            # No romper, podría haber otra escala menor que no sea proporcional y sí aplique.
-                            # O si la política es que si una escala proporcional no da multiplicador > 0, no aplica nada de esa escala:
-                            # beneficios_a_aplicar_config = [] # Limpiar
-                            # break # Salir del bucle de escalas
-                            continue # Intentar con la siguiente escala (si la política es buscar la mejor)
+                            continue 
 
 
                     print(f"      Multiplicador para beneficios de esta escala: {multiplicador_benef_escala}")
                     for beneficio_obj in escala.beneficios.all():
                         beneficios_a_aplicar_config.append((beneficio_obj, multiplicador_benef_escala))
-                    break # Asumimos que solo aplica una escala (la primera que cumpla, por el order_by)
+                    break 
         
-        else: # Promoción no escalonada
+        else: 
             print("  La promoción NO ES ESCALONADA.")
             aplica_promo_no_escalonada_base = False
             multiplicador_final_no_escalonada = 1
@@ -343,26 +312,19 @@ def procesar_y_aplicar_promociones_a_pedido(request, pedido_id):
                     aplica_promo_no_escalonada_base = True
                 print(f"    Proporcional: aplica_base={aplica_promo_no_escalonada_base}, multiplicador={multiplicador_final_no_escalonada}")
 
-            else: # No es proporcional directa, verificar umbrales fijos de CondicionPromocion
+            else: 
                 if promo.aplica_por == 'productos_condicion':
-                    cond_directa = promo.condiciones.first() # Asume una condición para el umbral o la primera
+                    cond_directa = promo.condiciones.first() 
                     if cond_directa:
                         print(f"    No proporcional. Evaluando umbrales de CondicionPromocion ID {cond_directa.condicionpromocion_id}: CantMin={cond_directa.cantidad_minima}, MontoMin={cond_directa.monto_minimo}")
                         if (cond_directa.cantidad_minima is None or cantidad_condicion >= cond_directa.cantidad_minima) and \
                            (cond_directa.monto_minimo is None or monto_condicion >= cond_directa.monto_minimo):
                             aplica_promo_no_escalonada_base = True
-                    # Si no hay cond_directa pero es 'productos_condicion', ¿debería aplicar si hay cantidad_condicion > 0?
-                    # Esto se manejó en calculate_condition_totals (si no hay condiciones, suma todo).
-                    # Aquí, si no hay cond_directa, la lógica es que no hay umbral que verificar,
-                    # así que si `cantidad_condicion` > 0, podría aplicar.
                     elif not cond_directa and (cantidad_condicion > 0 or monto_condicion > Decimal('0.00')):
                         print(f"    No proporcional, sin condición específica, pero hay items en condición. Aplicando.")
                         aplica_promo_no_escalonada_base = True
                 
                 elif promo.aplica_por == 'total_pedido' or promo.aplica_por == 'conjunto_obligatorio':
-                    # Si es 'total_pedido' o 'conjunto_obligatorio', y llegó hasta aquí,
-                    # se asume que las condiciones base (como la existencia del conjunto) ya se cumplieron.
-                    # Si se necesitaran umbrales explícitos para 'total_pedido', deberían estar en el modelo Promocion.
                     aplica_promo_no_escalonada_base = True
                 print(f"    No proporcional: aplica_base={aplica_promo_no_escalonada_base}")
             
@@ -414,11 +376,8 @@ def procesar_y_aplicar_promociones_a_pedido(request, pedido_id):
                     print(f"      BONIFICACIÓN CREADA: {cantidad_a_bonificar_final} x {beneficio_obj.articulo_bonificado.codigo_articulo}")
 
             elif beneficio_obj.tipo == 'descuento' and beneficio_obj.porcentaje_descuento:
-                # El multiplicador usualmente no afecta el % de descuento, sino la cantidad de veces que se da una bonificación.
-                # Si un descuento se aplica "por cada X", la estructura del beneficio debería ser diferente.
-                # Aquí asumimos que el % de descuento se aplica una vez si la condición/escala se cumple.
                 
-                items_sobre_los_que_aplicar_descuento = items_condicion # Por defecto
+                items_sobre_los_que_aplicar_descuento = items_condicion 
                 if promo.aplica_por == 'total_pedido':
                     items_sobre_los_que_aplicar_descuento = pedido_detalles_activos
                 
@@ -452,23 +411,21 @@ def procesar_y_aplicar_promociones_a_pedido(request, pedido_id):
             promo_aplicada_obj = PromocionAplicada.objects.create(
                 pedido=pedido,
                 promocion=promo,
-                escala_aplicada=escala_que_aplico, # Será None si no es escalonada o no aplicó escala
+                escala_aplicada=escala_que_aplico, 
                 descripcion_beneficios_obtenidos=", ".join(descripcion_beneficios_str_list_para_esta_promo),
                 monto_descuento_generado=monto_descuento_generado_por_esta_promo
             )
-            promociones_efectivamente_aplicadas_objs.append(promo_aplicada_obj) # Guardar el obj PromocionAplicada
+            promociones_efectivamente_aplicadas_objs.append(promo_aplicada_obj) 
             pedido.descuento_total += monto_descuento_generado_por_esta_promo
             print(f"  PROMOCIÓN '{promo.nombre}' APLICADA. Beneficios: {', '.join(descripcion_beneficios_str_list_para_esta_promo)}. Descuento total de esta promo: {monto_descuento_generado_por_esta_promo}")
         else:
             print(f"  No se generaron beneficios concretos (descripción vacía) para la promoción '{promo.nombre}' aunque cumplió condiciones iniciales.")
 
     # 4. Recalcular totales finales del pedido y guardar
-    # Es importante recargar los detalles por si se añadieron bonificaciones
     detalles_finales_del_pedido_con_bonificaciones = pedido.detalles.all()
     pedido.subtotal = sum(d.subtotal_linea for d in detalles_finales_del_pedido_con_bonificaciones if not d.es_bonificacion)
-    # pedido.descuento_total ya fue acumulado a medida que se aplicaban descuentos
     pedido.total_pedido = pedido.subtotal - pedido.descuento_total
-    pedido.save() # Guardar el pedido con los totales finales
+    pedido.save() 
     print(f"Pedido FINAL guardado: ID={pedido.pedido_id}, Subtotal={pedido.subtotal}, DescuentoTotal={pedido.descuento_total}, TotalPedido={pedido.total_pedido}")
 
     if promociones_efectivamente_aplicadas_objs:
@@ -482,9 +439,9 @@ def procesar_y_aplicar_promociones_a_pedido(request, pedido_id):
 
 # === PÁGINA PRINCIPAL ===
 def home(request):
-    return render(request, 'core/home.html') # Asegúrate que esta plantilla exista
+    return render(request, 'core/home.html')
 
-# === AUTENTICACIÓN === (Sin cambios mayores, parecen funcionales)
+# === AUTENTICACIÓN ===
 def login_user(request):
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -493,22 +450,22 @@ def login_user(request):
         if user is not None:
             login(request, user)
             messages.success(request, "Sesión iniciada correctamente.")
-            # Redirigir a una página relevante, ej. listar pedidos o crear promo
             return redirect('listar_promociones')
         else:
             messages.error(request, "Nombre de usuario o contraseña incorrectos.")
-            return redirect('login_user') # Redirigir de nuevo a la página de login
-    return render(request, 'core/login/login.html') # Asegúrate que esta plantilla exista
+            return redirect('login_user') 
+    return render(request, 'core/login/login.html') 
 
 def logout_user(request):
     logout(request)
     messages.success(request, "Sesión cerrada correctamente.")
     return redirect('home')
 
+def dashboard(request):
+
+    return render(request, 'core/dashboard.html')
+
 # === CRUD PROMOCIONES ===
-# Para un CRUD completo y amigable de Promociones con sus condiciones, escalas y beneficios anidados,
-# se recomienda usar ModelForms y Django's inlineformset_factory.
-# Las vistas aquí serán simplificadas o necesitarán desarrollo adicional para los formsets.
 
 @login_required
 def listar_promociones(request):
@@ -517,10 +474,8 @@ def listar_promociones(request):
 
 @login_required
 def crear_promocion(request):
-    # Esta vista necesitaría manejar FormSets para Condicion, Escala, Beneficio.
-    # Por simplicidad, solo se muestra el form de Promocion.
     if request.method == 'POST':
-        form = PromocionModelForm(request.POST) # <--- CORREGIDO
+        form = PromocionModelForm(request.POST) 
         if form.is_valid():
             promocion = form.save()
             messages.success(request, f"Promoción '{promocion.nombre}' creada. Agregue condiciones, escalas y beneficios.")
@@ -528,14 +483,14 @@ def crear_promocion(request):
         else:
             messages.error(request, "Por favor corrija los errores en el formulario.")
     else:
-        form = PromocionModelForm() # <--- CORREGIDO
+        form = PromocionModelForm() 
     return render(request, 'core/promociones/formulario_promocion.html', {'form': form, 'action': 'Crear'})
 
 @login_required
 def editar_promocion(request, promocion_id):
     promocion = get_object_or_404(Promocion, promocion_id=promocion_id)
     if request.method == 'POST':
-        form = PromocionModelForm(request.POST, instance=promocion) # <--- CORREGIDO
+        form = PromocionModelForm(request.POST, instance=promocion) 
         if form.is_valid():
             form.save()
             messages.success(request, f"Promoción '{promocion.nombre}' actualizada.")
@@ -543,17 +498,15 @@ def editar_promocion(request, promocion_id):
         else:
             messages.error(request, "Por favor corrija los errores en el formulario.")
     else:
-        form = PromocionModelForm(instance=promocion) # <--- CORREGIDO
+        form = PromocionModelForm(instance=promocion) 
     return render(request, 'core/promociones/formulario_promocion.html', {'form': form, 'promocion': promocion, 'action': 'Editar'})
 
 @login_required
 def detalle_promocion(request, promocion_id):
     promocion = get_object_or_404(Promocion, promocion_id=promocion_id)
-    # Aquí podrías mostrar forms para añadir/editar condiciones, escalas, beneficios
-    # usando inlineformset_factory o vistas separadas.
     condiciones = promocion.condiciones.all()
-    escalas = promocion.escalas.all() # Cada escala tendrá sus beneficios
-    beneficios_directos = promocion.beneficios_directos.all() # Para promos no escalonadas
+    escalas = promocion.escalas.all() 
+    beneficios_directos = promocion.beneficios_directos.all() 
 
     context = {
         'promocion': promocion,
@@ -581,7 +534,7 @@ def gestionar_promocion_completa(request, promocion_id=None):
         are_all_valid = (
             form_promocion.is_valid() and
             formset_condiciones.is_valid() and
-            formset_escalas.is_valid() and # El formset de escalas ahora es más simple
+            formset_escalas.is_valid() and 
             formset_beneficios_directos.is_valid()
         )
 
@@ -595,16 +548,14 @@ def gestionar_promocion_completa(request, promocion_id=None):
                     
                     if nueva_promocion.es_escalonada:
                         formset_escalas.instance = nueva_promocion
-                        formset_escalas.save() # Simplemente guarda las escalas. Sus beneficios se gestionan aparte.
+                        formset_escalas.save() 
                         
-                        # Si antes había beneficios directos y ahora es escalonada, borrarlos.
-                        if promocion and not promocion.es_escalonada: # Si se cambió de no escalonada a escalonada
+                        if promocion and not promocion.es_escalonada:
                             BeneficioPromocion.objects.filter(promocion=nueva_promocion, escala__isnull=True).delete()
-                    else: # No es escalonada
+                    else: 
                         formset_beneficios_directos.instance = nueva_promocion
                         formset_beneficios_directos.save()
-                        # Si antes era escalonada y ahora no, borrar sus escalas (y sus beneficios por CASCADE)
-                        if promocion and promocion.es_escalonada: # Si se cambió de escalonada a no escalonada
+                        if promocion and promocion.es_escalonada: 
                             EscalaPromocion.objects.filter(promocion=nueva_promocion).delete()
                     
                     messages.success(request, f"Promoción '{nueva_promocion.nombre}' {action_text.lower()}da correctamente.")
@@ -614,13 +565,9 @@ def gestionar_promocion_completa(request, promocion_id=None):
                 print(f"Error en transacción de guardar promoción: {e}")
         else:
             messages.error(request, "Por favor corrija los errores en el formulario.")
-            # (Opcional: imprimir errores para depuración)
-            # print("Errores form_promocion:", form_promocion.errors, form_promocion.non_field_errors())
-            # print("Errores formset_condiciones:", formset_condiciones.errors, formset_condiciones.non_form_errors())
-            # print("Errores formset_escalas:", formset_escalas.errors, formset_escalas.non_form_errors())
-            # print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors, formset_beneficios_directos.non_form_errors())
 
-    else: # GET
+
+    else: 
         form_promocion = PromocionModelForm(instance=promocion, prefix="promo")
         formset_condiciones = CondicionPromocionFormSet(instance=promocion, prefix="cond")
         formset_escalas = EscalaPromocionFormSet(instance=promocion, prefix="escala")
@@ -647,15 +594,12 @@ def eliminar_promocion(request, promocion_id):
     return render(request, 'core/promociones/confirmar_eliminar_promocion.html', {'promocion': promocion})
 
 
-# === VISTAS PARA CREAR/GESTIONAR CONDICIONES, ESCALAS, BENEFICIOS (Simplificado) ===
-# Estas vistas necesitarían formularios adecuados (ModelForms) y lógica para asociarlos
-# correctamente a la Promoción o EscalaPromocion.
+# === VISTAS PARA CREAR/GESTIONAR CONDICIONES, ESCALAS, BENEFICIOS ===
 
-# Ejemplo para Condiciones (requiere CondicionPromocionForm en forms.py)
 @login_required
 def gestionar_condiciones_promocion(request, promocion_id):
     promocion = get_object_or_404(Promocion, promocion_id=promocion_id)
-    CondicionFormSet = CondicionPromocionFormSet # Asume que tienes este formset
+    CondicionFormSet = CondicionPromocionFormSet 
     
     if request.method == 'POST':
         formset = CondicionFormSet(request.POST, instance=promocion)
@@ -668,7 +612,6 @@ def gestionar_condiciones_promocion(request, promocion_id):
         
     return render(request, 'core/promociones/gestionar_condiciones.html', {'promocion': promocion, 'formset': formset})
 
-# De manera similar se crearían vistas para gestionar_escalas_promocion y gestionar_beneficios_promocion/escala
 
 # === CRUD PEDIDOS ===
 @login_required
@@ -685,21 +628,19 @@ def crear_pedido_vista(request):
         
         articulo_pks_from_form = request.POST.getlist("articulo_pk[]")
         cantidades_from_form = request.POST.getlist("cantidad[]")
-        precios_unitarios_from_form = request.POST.getlist("precio_unitario[]") # NUEVO: Recibir precios
+        precios_unitarios_from_form = request.POST.getlist("precio_unitario[]")
 
         # --- Validaciones de cabecera y de que las listas tengan la misma longitud ---
         if not cliente_id_from_form or not canal_id_from_form or not sucursal_id_from_form:
             messages.error(request, "Debe seleccionar un cliente, un canal y una sucursal.")
-            # (Recargar form con contexto)
-            # ...
+
             return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
 
 
         if not (articulo_pks_from_form and 
                 len(articulo_pks_from_form) == len(cantidades_from_form) == len(precios_unitarios_from_form)):
             messages.error(request, "Inconsistencia en los datos de los artículos. Intente de nuevo.")
-            # (Recargar form con contexto)
-            # ...
+
             return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
         
         try:
@@ -708,8 +649,7 @@ def crear_pedido_vista(request):
             sucursal = get_object_or_404(Sucursal, sucursal_id=sucursal_id_from_form)
         except Exception as e:
             messages.error(request, f"Error al obtener cliente, canal o sucursal. Detalle: {e}")
-            # (Recargar form con contexto)
-            # ...
+
             return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
 
 
@@ -728,12 +668,11 @@ def crear_pedido_vista(request):
             has_valid_items = False
 
             for pk_str, cantidad_str, precio_str in zip(articulo_pks_from_form, cantidades_from_form, precios_unitarios_from_form):
-                if not pk_str or not cantidad_str or not precio_str: # Si alguna fila está incompleta, omitirla
+                if not pk_str or not cantidad_str or not precio_str: 
                     continue
                 try:
                     cantidad = int(cantidad_str)
-                    # El precio del form puede ser string, convertir a Decimal
-                    precio_unitario_manual = Decimal(precio_str.replace(',', '.')) # Reemplazar coma si es necesario
+                    precio_unitario_manual = Decimal(precio_str.replace(',', '.')) 
 
                     if cantidad <= 0 or precio_unitario_manual < Decimal('0.00'):
                         messages.warning(request, f"Cantidad o precio no válidos para un artículo. Fue ignorado.")
@@ -742,8 +681,6 @@ def crear_pedido_vista(request):
                     articulo = get_object_or_404(Articulo, articulo_id=pk_str)
                     has_valid_items = True
                     
-                    # Usar el precio ingresado manualmente. Si el artículo tuviera un precio_venta,
-                    # el JS lo habría prepopulado, pero el usuario puede cambiarlo.
                     precio_final_a_usar = precio_unitario_manual
                     subtotal_linea_val = Decimal(cantidad) * precio_final_a_usar
                     subtotal_acumulado_pedido += subtotal_linea_val
@@ -752,55 +689,44 @@ def crear_pedido_vista(request):
                         pedido=pedido,
                         articulo=articulo,
                         cantidad=cantidad,
-                        precio_unitario_lista=precio_final_a_usar, # Usar el precio del formulario
+                        precio_unitario_lista=precio_final_a_usar,
                         subtotal_linea=subtotal_linea_val,
                         total_linea=subtotal_linea_val
                     )
                 except Articulo.DoesNotExist:
                     messages.warning(request, f"Artículo con ID {pk_str} no encontrado. Fue ignorado.")
-                except (ValueError, InvalidOperation): # Error al convertir cantidad o precio
+                except (ValueError, InvalidOperation): 
                     messages.warning(request, f"Cantidad '{cantidad_str}' o precio '{precio_str}' no válidos. Fueron ignorados.")
             
             if not has_valid_items:
                 messages.error(request, "El pedido no contiene artículos válidos.")
-                # No es necesario hacer rollback explícito si transaction.atomic falla por una excepción no capturada
-                # pero aquí estamos continuando, así que si no hay items, el pedido se crearía vacío.
-                # Podrías decidir eliminar el pedido si no tiene detalles.
-                # O simplemente dejar que la lógica de promociones no encuentre nada.
-                # Por ahora, lo dejamos así, pero en un sistema real, un pedido sin items es raro.
-                # pedido.delete() # Opcional: borrar pedido si no tiene items
-                # transaction.set_rollback(True) # Si quieres forzar rollback
                 return redirect('crear_pedido_vista')
 
 
             pedido.subtotal = subtotal_acumulado_pedido
             pedido.total_pedido = subtotal_acumulado_pedido
-            pedido.save() # Guardar el pedido con su subtotal inicial
+            pedido.save() 
 
         return procesar_y_aplicar_promociones_a_pedido(request, pedido.pedido_id)
 
-    # Contexto para el método GET
-    # Definir una función helper para el contexto es más limpio si se repite
     return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
 
-def context_para_get(request, posted_data=None): # Helper para el contexto
+def context_para_get(request, posted_data=None):
     if posted_data is None:
         posted_data = {}
     return {
         "clientes": Cliente.objects.all().order_by('nombres'),
         "canales": CanalCliente.objects.all().order_by('nombre'),
         "sucursales": Sucursal.objects.all().order_by('nombre'),
-        "articulos": Articulo.objects.all().order_by('descripcion'), # Para el <template>
-        # Para repopular si hay error
+        "articulos": Articulo.objects.all().order_by('descripcion'), 
         "posted_cliente_id": posted_data.get("cliente"),
         "posted_canal_id": posted_data.get("canal_cliente"),
         "posted_sucursal_id": posted_data.get("sucursal"),
-        # Repopular artículos es más complejo con JS, no se hace aquí por simplicidad
     }
 
 
 @login_required
-def vista_detalle_pedido(request, pedido_id): # Renombrada para claridad
+def vista_detalle_pedido(request, pedido_id): 
     pedido = get_object_or_404(Pedido, pedido_id=pedido_id)
     detalles = pedido.detalles.all().order_by('es_bonificacion', 'articulo__descripcion')
     promociones_aplicadas_al_pedido = pedido.promociones_aplicadas.all()
@@ -813,7 +739,6 @@ def vista_detalle_pedido(request, pedido_id): # Renombrada para claridad
 
 
 # === VISTAS DE BÚSQUEDA PARA AUTOCOMPLETAR (AJAX) ===
-# views.py
 
 @login_required
 def buscar_articulos_json(request):
@@ -837,7 +762,7 @@ def buscar_articulos_json(request):
             "descripcion": a.descripcion,
             "empresa_id": str(a.empresa.empresa_id),
             "empresa_nombre": a.empresa.nombre,
-            "precio_venta": str(a.precio_venta) if a.precio_venta is not None else "" # Enviar precio_venta
+            "precio_venta": str(a.precio_venta) if a.precio_venta is not None else ""
         } for a in articulos
     ]
     return JsonResponse(results, safe=False)
@@ -860,7 +785,7 @@ def gestionar_promocion_completa(request, promocion_id=None):
         are_all_valid = (
             form_promocion.is_valid() and
             formset_condiciones.is_valid() and
-            formset_escalas.is_valid() and # El formset de escalas ahora es más simple
+            formset_escalas.is_valid() and 
             formset_beneficios_directos.is_valid()
         )
 
@@ -874,16 +799,14 @@ def gestionar_promocion_completa(request, promocion_id=None):
                     
                     if nueva_promocion.es_escalonada:
                         formset_escalas.instance = nueva_promocion
-                        formset_escalas.save() # Simplemente guarda las escalas. Sus beneficios se gestionan aparte.
+                        formset_escalas.save()
                         
-                        # Si antes había beneficios directos y ahora es escalonada, borrarlos.
-                        if promocion and not promocion.es_escalonada: # Si se cambió de no escalonada a escalonada
+                        if promocion and not promocion.es_escalonada: 
                             BeneficioPromocion.objects.filter(promocion=nueva_promocion, escala__isnull=True).delete()
-                    else: # No es escalonada
+                    else: 
                         formset_beneficios_directos.instance = nueva_promocion
                         formset_beneficios_directos.save()
-                        # Si antes era escalonada y ahora no, borrar sus escalas (y sus beneficios por CASCADE)
-                        if promocion and promocion.es_escalonada: # Si se cambió de escalonada a no escalonada
+                        if promocion and promocion.es_escalonada: 
                             EscalaPromocion.objects.filter(promocion=nueva_promocion).delete()
                     
                     messages.success(request, f"Promoción '{nueva_promocion.nombre}' {action_text.lower()}da correctamente.")
@@ -893,11 +816,6 @@ def gestionar_promocion_completa(request, promocion_id=None):
                 print(f"Error en transacción de guardar promoción: {e}")
         else:
             messages.error(request, "Por favor corrija los errores en el formulario.")
-            # (Opcional: imprimir errores para depuración)
-            # print("Errores form_promocion:", form_promocion.errors, form_promocion.non_field_errors())
-            # print("Errores formset_condiciones:", formset_condiciones.errors, formset_condiciones.non_form_errors())
-            # print("Errores formset_escalas:", formset_escalas.errors, formset_escalas.non_form_errors())
-            # print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors, formset_beneficios_directos.non_form_errors())
 
     else: # GET
         form_promocion = PromocionModelForm(instance=promocion, prefix="promo")
@@ -918,8 +836,6 @@ def gestionar_promocion_completa(request, promocion_id=None):
 @login_required
 def buscar_lineas_json(request):
     term = request.GET.get('term', '').strip()
-    # Podrías filtrar por empresa si las líneas son específicas de empresa
-    # empresa_id = request.GET.get('empresa_id') 
     lineas_qs = Linea.objects
     if term:
         lineas_qs = lineas_qs.filter(nombre__icontains=term)
@@ -934,7 +850,6 @@ def buscar_lineas_json(request):
 @login_required
 def buscar_grupos_json(request):
     term = request.GET.get('term', '').strip()
-    # Podrías filtrar por empresa
     grupos_qs = GrupoProveedor.objects
     if term:
         grupos_qs = grupos_qs.filter(nombre__icontains=term)
@@ -947,11 +862,11 @@ def buscar_grupos_json(request):
     return JsonResponse(results, safe=False)
 
 @login_required
-def gestionar_beneficios_de_escala(request, escala_id): # Esta vista ya la tenías
+def gestionar_beneficios_de_escala(request, escala_id):
     escala = get_object_or_404(EscalaPromocion, escalapromocion_id=escala_id)
     
     if request.method == 'POST':
-        formset = BeneficioEscalaPromocionFormSet(request.POST, instance=escala, prefix='beneficios_escala') # Usar un prefijo
+        formset = BeneficioEscalaPromocionFormSet(request.POST, instance=escala, prefix='beneficios_escala')
         if formset.is_valid():
             formset.save()
             messages.success(request, f"Beneficios para la escala '{escala.descripcion_escala or escala.pk}' actualizados.")

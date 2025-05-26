@@ -31,7 +31,6 @@ class GrupoProveedor(models.Model):
     nombre = models.CharField(max_length=100)
     estado = models.BooleanField(default=True)
     class Meta:
-        # El código de grupo debe ser único dentro de una empresa si no es global
         unique_together = ('empresa', 'codigo')
     def __str__(self):
         return self.nombre
@@ -44,7 +43,6 @@ class Linea(models.Model):
     nombre = models.CharField(max_length=100)
     estado = models.BooleanField(default=True)
     class Meta:
-        # El código de línea debe ser único dentro de una empresa si no es global
         unique_together = ('empresa', 'codigo')
     def __str__(self):
         return self.nombre
@@ -128,7 +126,7 @@ class Promocion(models.Model):
         ('conjunto_obligatorio', 'Compra Conjunta de Productos Específicos')
     ]
     promocion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    nombre = models.CharField(max_length=150, unique=True) # Nombre único para fácil identificación
+    nombre = models.CharField(max_length=150, unique=True)
     descripcion = models.TextField(null=True, blank=True)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="promociones")
     sucursal = models.ForeignKey(Sucursal, on_delete=models.SET_NULL, null=True, blank=True, help_text="Si vacío, aplica a todas las sucursales de la empresa.", related_name="promociones")
@@ -149,7 +147,7 @@ class Promocion(models.Model):
         return self.nombre
 
 class CondicionPromocion(models.Model):
-    condicionpromocion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) # Renombrado
+    condicionpromocion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     promocion = models.ForeignKey(Promocion, on_delete=models.CASCADE, related_name="condiciones")
     articulo = models.ForeignKey(Articulo, on_delete=models.CASCADE, null=True, blank=True, related_name="condiciones_promocion")
     linea = models.ForeignKey(Linea, on_delete=models.CASCADE, null=True, blank=True, related_name="condiciones_promocion")
@@ -166,7 +164,7 @@ class CondicionPromocion(models.Model):
         return f"Condición para '{self.promocion.nombre}' sobre '{target}'"
 
 class EscalaPromocion(models.Model):
-    escalapromocion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) # Renombrado
+    escalapromocion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     promocion = models.ForeignKey(Promocion, on_delete=models.CASCADE, related_name="escalas")
     descripcion_escala = models.CharField(max_length=100, null=True, blank=True)
     desde_monto = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -194,7 +192,7 @@ class BeneficioPromocion(models.Model):
     porcentaje_descuento = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        owner = "Beneficio Huérfano" # Default, debería tener promo o escala
+        owner = "Beneficio Huérfano"
         if self.promocion: owner = f"Promo directa '{self.promocion.nombre}'"
         elif self.escala: owner = f"Escala '{self.escala.descripcion_escala or self.escala.escalapromocion_id}' de Promo '{self.escala.promocion.nombre}'"
         
@@ -214,20 +212,19 @@ class Pedido(models.Model):
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     descuento_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_pedido = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    # Considerar añadir un campo vendedor = models.ForeignKey(Vendedor, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f"Pedido {self.pedido_id} de {self.cliente.nombres}"
 
 class DetallePedido(models.Model):
-    detallepedido_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) # Renombrado
+    detallepedido_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="detalles")
     articulo = models.ForeignKey(Articulo, on_delete=models.PROTECT, related_name="en_pedidos")
-    cantidad = models.PositiveIntegerField() # Cantidad debe ser positiva
+    cantidad = models.PositiveIntegerField() 
     precio_unitario_lista = models.DecimalField(max_digits=10, decimal_places=2)
-    subtotal_linea = models.DecimalField(max_digits=12, decimal_places=2) # cantidad * precio_unitario_lista
+    subtotal_linea = models.DecimalField(max_digits=12, decimal_places=2)
     descuento_linea = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_linea = models.DecimalField(max_digits=12, decimal_places=2) # subtotal_linea - descuento_linea
+    total_linea = models.DecimalField(max_digits=12, decimal_places=2) 
     es_bonificacion = models.BooleanField(default=False, help_text="True si este item es bonificación y precio es 0.")
     promocion_origen = models.ForeignKey(Promocion, on_delete=models.SET_NULL, null=True, blank=True, help_text="Promoción que originó este ítem si es bonificación.", related_name="items_bonificados_generados")
 
@@ -236,7 +233,7 @@ class DetallePedido(models.Model):
         if not self.es_bonificacion:
             self.subtotal_linea = self.cantidad * self.precio_unitario_lista
             self.total_linea = self.subtotal_linea - self.descuento_linea
-        else: # Si es bonificación, los precios y montos deberían ser 0
+        else: 
             self.precio_unitario_lista = 0
             self.subtotal_linea = 0
             self.descuento_linea = 0

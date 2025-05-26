@@ -1,5 +1,5 @@
 from django import forms
-from django.forms import inlineformset_factory # BaseInlineFormSet no es necesario importarlo directamente aquí usualmente
+from django.forms import inlineformset_factory
 from .models import (
     Empresa, Sucursal, CanalCliente, GrupoProveedor, Linea, Articulo,
     Vendedor, Cliente, Promocion, CondicionPromocion, EscalaPromocion,
@@ -7,7 +7,6 @@ from .models import (
 )
 
 class CondicionPromocionModelForm(forms.ModelForm):
-    # Campos para búsqueda con autocompletar
     articulo_search = forms.CharField(
         label='Buscar Artículo (Condición)', 
         required=False, 
@@ -26,12 +25,10 @@ class CondicionPromocionModelForm(forms.ModelForm):
 
     class Meta:
         model = CondicionPromocion
-        # 'promocion' y 'condicionpromocion_id' son excluidos
-        # Los campos de FK reales se vuelven hidden
         fields = [
             'articulo', 'linea', 'grupo', 
             'cantidad_minima', 'monto_minimo', 'obligatoria_en_conjunto',
-            'articulo_search', 'linea_search', 'grupo_search' # Añadir los campos de búsqueda
+            'articulo_search', 'linea_search', 'grupo_search'
         ]
         widgets = {
             'articulo': forms.HiddenInput(attrs={'class': 'articulo-pk-input'}),
@@ -44,7 +41,6 @@ class CondicionPromocionModelForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Si hay una instancia (editando), poblar los campos de búsqueda con la descripción actual
         if self.instance and self.instance.pk:
             if self.instance.articulo:
                 self.initial['articulo_search'] = f"E:{self.instance.articulo.empresa.empresa_id} | {self.instance.articulo.codigo_articulo} - {self.instance.articulo.descripcion}"
@@ -53,7 +49,6 @@ class CondicionPromocionModelForm(forms.ModelForm):
             if self.instance.grupo:
                 self.initial['grupo_search'] = self.instance.grupo.nombre
         
-        # Asegurarse que los campos FK no sean requeridos si el campo de búsqueda correspondiente se usa
         self.fields['articulo'].required = False
         self.fields['linea'].required = False
         self.fields['grupo'].required = False
@@ -61,8 +56,6 @@ class CondicionPromocionModelForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         # Si un campo de búsqueda tiene valor pero el campo FK no (porque JS falló o no se seleccionó),
-        # podríamos intentar buscar el objeto aquí o simplemente confiar en que el JS ponga el ID.
-        # Por ahora, asumimos que el JS rellena el campo FK (articulo, linea, grupo).
         
         # Lógica para asegurar que solo uno de articulo, linea o grupo esté seleccionado para una condición:
         selected_targets = 0
@@ -72,8 +65,6 @@ class CondicionPromocionModelForm(forms.ModelForm):
 
         if selected_targets > 1:
             raise forms.ValidationError("Por favor, seleccione solo un Artículo, o una Línea, o un Grupo para la condición, no múltiples.")
-        # Si no se selecciona ninguno Y la condición requiere un target (ej. no es promo total_pedido), se podría añadir error.
-        # Esto depende de la lógica de 'aplica_por' de la Promocion padre.
         return cleaned_data
 
 
@@ -103,7 +94,7 @@ class BeneficioPromocionModelForm(forms.ModelForm):
         if self.instance and self.instance.pk and self.instance.articulo_bonificado:
             self.initial['articulo_bonificado_search'] = f"E:{self.instance.articulo_bonificado.empresa.empresa_id} | {self.instance.articulo_bonificado.codigo_articulo} - {self.instance.articulo_bonificado.descripcion}"
         
-        self.fields['articulo_bonificado'].required = False # El campo FK se vuelve no requerido
+        self.fields['articulo_bonificado'].required = False
         self.fields['cantidad_bonificada'].required = False
         self.fields['porcentaje_descuento'].required = False
 
@@ -112,13 +103,10 @@ class BeneficioPromocionModelForm(forms.ModelForm):
         tipo = cleaned_data.get("tipo")
 
         if tipo == "bonificacion":
-            # El ID del artículo bonificado debería estar en cleaned_data['articulo_bonificado']
-            # si el JS lo puso correctamente en el hidden input.
             if not cleaned_data.get("articulo_bonificado"):
-                # Si el campo de búsqueda tiene texto pero el ID no se seteó, podría ser un error
                 if cleaned_data.get("articulo_bonificado_search"):
                      self.add_error('articulo_bonificado_search', 'Debe seleccionar un artículo válido de la lista.')
-                else: # Si ni el campo de búsqueda ni el ID tienen valor
+                else:
                      self.add_error('articulo_bonificado_search', 'Este campo es requerido para bonificación.')
 
             if not cleaned_data.get("cantidad_bonificada"):
@@ -182,7 +170,7 @@ class LineaForm(forms.ModelForm):
 class ArticuloForm(forms.ModelForm):
     class Meta:
         model = Articulo
-        fields = [ # Especificar campos para excluir los IDs autogenerados si no son UUIDField definidos explícitamente
+        fields = [ 
             'empresa', 'codigo_articulo', 'codigo_barras', 'codigo_ean',
             'descripcion', 'grupo', 'linea', 'unidad_medida', 'unidad_compra',
             'unidad_reparto', 'unidad_bonificacion', 'factor_reparto',
@@ -191,13 +179,10 @@ class ArticuloForm(forms.ModelForm):
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-            # 'fecha_creacion' no existe en tu modelo Articulo, lo quito
-            # Añade más widgets según necesites para los otros campos
             'empresa': forms.Select(attrs={'class': 'form-select'}),
             'codigo_articulo': forms.TextInput(attrs={'class': 'form-control'}),
             'grupo': forms.Select(attrs={'class': 'form-select'}),
             'linea': forms.Select(attrs={'class': 'form-select'}),
-            # ... y así para los demás campos que quieras estilizar
         }
 
 class VendedorForm(forms.ModelForm):
@@ -207,18 +192,16 @@ class VendedorForm(forms.ModelForm):
             'nro_documento', 'tipo_identificacion_id', 'nombres', 'direccion',
             'nro_movil', 'canal', 'supervisor', 'correo_electronico', 'territorio', 'rol_id'
         ]
-        # Añade widgets si es necesario
 
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         fields = ['nombres', 'canal', 'nro_documento', 'tipo_documento', 'tipo_cliente']
-        # Añade widgets si es necesario
 
 
 # === FORMULARIOS DE PROMOCIONES Y SUS ELEMENTOS ANIDADOS ===
 
-class PromocionModelForm(forms.ModelForm): # Este es el que debes usar
+class PromocionModelForm(forms.ModelForm):
     class Meta:
         model = Promocion
         fields = [
@@ -246,7 +229,7 @@ class PromocionModelForm(forms.ModelForm): # Este es el que debes usar
             'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
-class EscalaPromocionModelForm(forms.ModelForm): # VERSIÓN SIMPLIFICADA
+class EscalaPromocionModelForm(forms.ModelForm):
     class Meta:
         model = EscalaPromocion
         exclude = ['promocion', 'escalapromocion_id']
@@ -264,28 +247,25 @@ class EscalaPromocionModelForm(forms.ModelForm): # VERSIÓN SIMPLIFICADA
             'proporcional': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
-# El EscalaPromocionFormSet usará este EscalaPromocionModelForm
 EscalaPromocionFormSet = inlineformset_factory(
     Promocion,
     EscalaPromocion,
-    form=EscalaPromocionModelForm, # Usar el form modificado
+    form=EscalaPromocionModelForm, 
     extra=1,
     can_delete=True,
     fk_name='promocion'
 )
 
-# El EscalaPromocionFormSet usará este EscalaPromocionModelForm
 EscalaPromocionFormSet = inlineformset_factory(
     Promocion,
     EscalaPromocion,
-    form=EscalaPromocionModelForm, # Usar el form modificado
+    form=EscalaPromocionModelForm, 
     extra=1,
     can_delete=True,
     fk_name='promocion'
 )
 
 
-# Formsets para gestionar elementos anidados de Promocion
 CondicionPromocionFormSet = inlineformset_factory(
     Promocion,
     CondicionPromocion,
@@ -353,4 +333,3 @@ class PromocionAplicadaForm(forms.ModelForm):
     class Meta:
         model = PromocionAplicada
         fields = ['pedido', 'promocion', 'escala_aplicada', 'descripcion_beneficios_obtenidos', 'monto_descuento_generado']
-        # Generalmente no se edita, es más para visualización.

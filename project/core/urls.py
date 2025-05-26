@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     path('', views.home, name='home'),
 
+    path('dashboard/', views.dashboard, name='dashboard'),
+
     # Autenticación
     path('login/', views.login_user, name='login_user'),
     path('logout/', views.logout_user, name='logout_user'),
@@ -15,13 +17,7 @@ urlpatterns = [
     path('promociones/detalle/<uuid:promocion_id>/', views.detalle_promocion, name='detalle_promocion'),
     path('promociones/eliminar/<uuid:promocion_id>/', views.eliminar_promocion, name='eliminar_promocion'),
     # --- BÚSQUEDAS JSON (para autocompletar en formularios) ---
-    # Estas URLs devuelven JSON y no necesitan un prefijo 'api/' si no lo deseas.
-    # El nombre 'buscar_articulos_json' en views.py está bien.
     path('buscar-articulos-json/', views.buscar_articulos_json, name='buscar_articulos_json'),
-    
-    # Si tienes otras funciones de búsqueda JSON para líneas o grupos que usarás:
-    # path('buscar-lineas-json/', views.buscar_lineas_json, name='buscar_lineas_json'),
-    # path('buscar-grupos-json/', views.buscar_grupos_json, name='buscar_grupos_json'),
 
     # --- PEDIDOS ---
     path('pedidos/', views.listar_pedidos, name='listar_pedidos'),
