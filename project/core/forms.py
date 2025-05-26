@@ -247,19 +247,182 @@ class PromocionModelForm(forms.ModelForm): # Este es el que debes usar
         }
 
 class EscalaPromocionModelForm(forms.ModelForm):
+    # Beneficio 1
+    beneficio1_tipo = forms.ChoiceField(
+        choices=[('', '---------')] + BeneficioPromocion.TIPO_BENEFICIO_CHOICES, 
+        required=False, 
+        label="Tipo Beneficio 1", 
+        widget=forms.Select(attrs={'class': 'form-select beneficio-tipo-escala', 'data-beneficio-idx': '1'})
+    )
+    beneficio1_articulo_search = forms.CharField(
+        label='Buscar Artículo Bonificado 1', 
+        required=False, 
+        widget=forms.TextInput(attrs={'class': 'form-control articulo-bonificado-search-input', 'data-beneficio-idx': '1', 'placeholder': 'Escriba para buscar...'})
+    )
+    beneficio1_articulo_bonificado = forms.ModelChoiceField(
+        queryset=Articulo.objects.all(), # Queryset base para validación
+        required=False, 
+        widget=forms.HiddenInput(attrs={'class': 'articulo-bonificado-pk-input', 'data-beneficio-idx': '1'}),
+        to_field_name="articulo_id" # Coincide con el PK de Articulo
+    )
+    beneficio1_cantidad_bonificada = forms.IntegerField(
+        required=False, 
+        label="Cantidad Bonificada 1", 
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'data-beneficio-idx': '1', 'min': '1'})
+    )
+    beneficio1_porcentaje_descuento = forms.DecimalField(
+        required=False, 
+        label="Porcentaje Descuento 1 (%)", 
+        max_digits=5, decimal_places=2, 
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'data-beneficio-idx': '1', 'min': '0', 'max': '100'})
+    )
+
+    # Beneficio 2
+    beneficio2_tipo = forms.ChoiceField(
+        choices=[('', '---------')] + BeneficioPromocion.TIPO_BENEFICIO_CHOICES, 
+        required=False, 
+        label="Tipo Beneficio 2", 
+        widget=forms.Select(attrs={'class': 'form-select beneficio-tipo-escala', 'data-beneficio-idx': '2'})
+    )
+    beneficio2_articulo_search = forms.CharField(
+        label='Buscar Artículo Bonificado 2', 
+        required=False, 
+        widget=forms.TextInput(attrs={'class': 'form-control articulo-bonificado-search-input', 'data-beneficio-idx': '2', 'placeholder': 'Escriba para buscar...'})
+    )
+    beneficio2_articulo_bonificado = forms.ModelChoiceField(
+        queryset=Articulo.objects.all(), 
+        required=False, 
+        widget=forms.HiddenInput(attrs={'class': 'articulo-bonificado-pk-input', 'data-beneficio-idx': '2'}),
+        to_field_name="articulo_id"
+    )
+    beneficio2_cantidad_bonificada = forms.IntegerField(
+        required=False, 
+        label="Cantidad Bonificada 2", 
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'data-beneficio-idx': '2', 'min': '1'})
+    )
+    beneficio2_porcentaje_descuento = forms.DecimalField(
+        required=False, 
+        label="Porcentaje Descuento 2 (%)", 
+        max_digits=5, decimal_places=2, 
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'data-beneficio-idx': '2', 'min': '0', 'max': '100'})
+    )
+
     class Meta:
         model = EscalaPromocion
         exclude = ['promocion', 'escalapromocion_id']
+        fields = [
+            'descripcion_escala', 'desde_monto', 'hasta_monto', 
+            'desde_cantidad', 'hasta_cantidad', 'proporcional',
+            'base_cantidad_proporcional_escala', 'base_monto_proporcional_escala',
+            'beneficio1_tipo', 'beneficio1_articulo_search', 'beneficio1_articulo_bonificado',
+            'beneficio1_cantidad_bonificada', 'beneficio1_porcentaje_descuento',
+            'beneficio2_tipo', 'beneficio2_articulo_search', 'beneficio2_articulo_bonificado',
+            'beneficio2_cantidad_bonificada', 'beneficio2_porcentaje_descuento',
+        ]
         widgets = {
-            'descripcion_escala': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descripción de la escala'}),
-            'desde_monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Desde Monto'}),
-            'hasta_monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Hasta Monto'}),
-            'desde_cantidad': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Desde Cantidad'}),
-            'hasta_cantidad': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Hasta Cantidad'}),
-            'base_cantidad_proporcional_escala': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Base Cant. Prop.'}),
-            'base_monto_proporcional_escala': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Base Monto Prop.'}),
+            'descripcion_escala': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: De 10 a 20 unidades'}),
+            'desde_monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'hasta_monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'desde_cantidad': forms.NumberInput(attrs={'class': 'form-control'}),
+            'hasta_cantidad': forms.NumberInput(attrs={'class': 'form-control'}),
             'proporcional': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'base_cantidad_proporcional_escala': forms.NumberInput(attrs={'class': 'form-control'}),
+            'base_monto_proporcional_escala': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            beneficios = list(self.instance.beneficios.all().order_by('beneficiopromocion_id')[:2]) # Ordenar para consistencia
+            if len(beneficios) > 0: self._populate_beneficio_fields_initial(beneficios[0], '1')
+            if len(beneficios) > 1: self._populate_beneficio_fields_initial(beneficios[1], '2')
+        
+    def _populate_beneficio_fields_initial(self, beneficio_instance, index_str):
+        self.initial[f'beneficio{index_str}_tipo'] = beneficio_instance.tipo
+        if beneficio_instance.articulo_bonificado:
+            self.initial[f'beneficio{index_str}_articulo_bonificado'] = beneficio_instance.articulo_bonificado_id # Usar el ID para initial de ModelChoiceField
+            self.initial[f'beneficio{index_str}_articulo_search'] = f"E:{beneficio_instance.articulo_bonificado.empresa.empresa_id} | {beneficio_instance.articulo_bonificado.codigo_articulo} - {beneficio_instance.articulo_bonificado.descripcion}"
+        self.initial[f'beneficio{index_str}_cantidad_bonificada'] = beneficio_instance.cantidad_bonificada
+        self.initial[f'beneficio{index_str}_porcentaje_descuento'] = beneficio_instance.porcentaje_descuento
+
+    def _clean_beneficio_fields(self, cleaned_data, index_str):
+        tipo = cleaned_data.get(f'beneficio{index_str}_tipo')
+        # El ModelChoiceField ya habrá intentado convertir el ID a una instancia
+        articulo_instancia = cleaned_data.get(f'beneficio{index_str}_articulo_bonificado')
+        cantidad = cleaned_data.get(f'beneficio{index_str}_cantidad_bonificada')
+        porcentaje = cleaned_data.get(f'beneficio{index_str}_porcentaje_descuento')
+        articulo_search_text = cleaned_data.get(f'beneficio{index_str}_articulo_search')
+
+        if tipo == 'bonificacion':
+            if not articulo_instancia:
+                # Si el campo de búsqueda tiene texto pero no se resolvió a una instancia, es un error de selección.
+                # Si el ModelChoiceField ya dio error porque el ID no existe, ese error se mostrará.
+                # Este error es más para el caso en que el usuario no seleccionó nada pero el tipo es bonif.
+                if not self.errors.get(f'beneficio{index_str}_articulo_bonificado'): # Solo añadir si ModelChoiceField no dio error ya
+                    self.add_error(f'beneficio{index_str}_articulo_search', 'Artículo bonificado es requerido y debe ser válido.')
+            if cantidad is None or cantidad <= 0: # Cantidad debe ser positiva
+                self.add_error(f'beneficio{index_str}_cantidad_bonificada', 'Cantidad debe ser un número positivo para bonificación.')
+            cleaned_data[f'beneficio{index_str}_porcentaje_descuento'] = None
+        elif tipo == 'descuento':
+            if porcentaje is None or porcentaje <= 0: # Porcentaje debe ser positivo
+                self.add_error(f'beneficio{index_str}_porcentaje_descuento', 'Porcentaje de descuento debe ser un número positivo.')
+            cleaned_data[f'beneficio{index_str}_articulo_bonificado'] = None
+            cleaned_data[f'beneficio{index_str}_cantidad_bonificada'] = None
+            cleaned_data[f'beneficio{index_str}_articulo_search'] = ''
+        elif not tipo or tipo == '': # No se seleccionó tipo, limpiar todos los campos de este beneficio
+            cleaned_data[f'beneficio{index_str}_articulo_bonificado'] = None
+            cleaned_data[f'beneficio{index_str}_cantidad_bonificada'] = None
+            cleaned_data[f'beneficio{index_str}_porcentaje_descuento'] = None
+            cleaned_data[f'beneficio{index_str}_articulo_search'] = ''
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        self._clean_beneficio_fields(cleaned_data, '1')
+        self._clean_beneficio_fields(cleaned_data, '2')
+        return cleaned_data
+
+    def save(self, commit=True):
+        escala_instance = super().save(commit=False) 
+        # El `promocion` FK se asigna por el formset.instance
+        
+        if commit:
+            escala_instance.save() 
+            self.save_beneficios(escala_instance) 
+        # Si commit=False, el formset padre (EscalaPromocionFormSet) necesitará una forma
+        # de llamar a save_beneficios después de que todo se guarde, o la vista lo hace.
+        # Con la lógica de vista actual, este save() con commit=True llamado por el formset.save() es suficiente.
+        return escala_instance
+
+    def save_beneficios(self, escala_instance):
+        # Este método es llamado por el save() de este form, después de que escala_instance tiene PK.
+        escala_instance.beneficios.all().delete() 
+
+        for index_str in ['1', '2']:
+            beneficio_tipo = self.cleaned_data.get(f'beneficio{index_str}_tipo')
+            if beneficio_tipo:
+                articulo_bonif_instancia = self.cleaned_data.get(f'beneficio{index_str}_articulo_bonificado')
+                
+                if beneficio_tipo == 'bonificacion' and not articulo_bonif_instancia:
+                    continue 
+
+                BeneficioPromocion.objects.create(
+                    escala=escala_instance,
+                    # promocion=None, # No es un beneficio directo de la promoción
+                    tipo=beneficio_tipo,
+                    articulo_bonificado=articulo_bonif_instancia,
+                    cantidad_bonificada=self.cleaned_data.get(f'beneficio{index_str}_cantidad_bonificada'),
+                    porcentaje_descuento=self.cleaned_data.get(f'beneficio{index_str}_porcentaje_descuento')
+                )
+
+# El EscalaPromocionFormSet usará este EscalaPromocionModelForm
+EscalaPromocionFormSet = inlineformset_factory(
+    Promocion,
+    EscalaPromocion,
+    form=EscalaPromocionModelForm, # Usar el form modificado
+    extra=1,
+    can_delete=True,
+    fk_name='promocion'
+)
 
 
 # Formsets para gestionar elementos anidados de Promocion
@@ -267,15 +430,6 @@ CondicionPromocionFormSet = inlineformset_factory(
     Promocion,
     CondicionPromocion,
     form=CondicionPromocionModelForm,
-    extra=1,
-    can_delete=True,
-    fk_name='promocion'
-)
-
-EscalaPromocionFormSet = inlineformset_factory(
-    Promocion,
-    EscalaPromocion,
-    form=EscalaPromocionModelForm,
     extra=1,
     can_delete=True,
     fk_name='promocion'

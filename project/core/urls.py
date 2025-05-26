@@ -14,7 +14,6 @@ urlpatterns = [
     path('promociones/gestionar/<uuid:promocion_id>/', views.gestionar_promocion_completa, name='editar_promocion_completa'),
     path('promociones/detalle/<uuid:promocion_id>/', views.detalle_promocion, name='detalle_promocion'),
     path('promociones/eliminar/<uuid:promocion_id>/', views.eliminar_promocion, name='eliminar_promocion'),
-
     # --- BÚSQUEDAS JSON (para autocompletar en formularios) ---
     # Estas URLs devuelven JSON y no necesitan un prefijo 'api/' si no lo deseas.
     # El nombre 'buscar_articulos_json' en views.py está bien.

@@ -563,6 +563,118 @@ def detalle_promocion(request, promocion_id):
     return render(request, 'core/promociones/detalle_promocion.html', context)
 
 @login_required
+def gestionar_promocion_completa(request, promocion_id=None):
+    if promocion_id:
+        promocion = get_object_or_404(Promocion, promocion_id=promocion_id)
+        action_text = "Editar"
+    else:
+        promocion = None
+        action_text = "Crear"
+
+    if request.method == 'POST':
+        form_promocion = PromocionModelForm(request.POST, instance=promocion, prefix="promo")
+        formset_condiciones = CondicionPromocionFormSet(request.POST, instance=promocion, prefix="cond")
+        formset_escalas = EscalaPromocionFormSet(request.POST, instance=promocion, prefix="escala")
+        formset_beneficios_directos = BeneficioDirectoPromocionFormSet(request.POST, instance=promocion, prefix="benef_directo")
+
+        # Validar todos los formularios y formsets
+        are_all_valid = (
+            form_promocion.is_valid() and
+            formset_condiciones.is_valid() and
+            formset_escalas.is_valid() and
+            formset_beneficios_directos.is_valid()
+        )
+
+        if are_all_valid:
+            try:
+                with transaction.atomic():
+                    # Guardar la promoción principal
+                    nueva_promocion = form_promocion.save()
+
+                    # Guardar condiciones
+                    formset_condiciones.instance = nueva_promocion
+                    formset_condiciones.save() # Esto guarda las condiciones
+
+                    # Guardar beneficios directos (si la promo no es escalonada)
+                    if not nueva_promocion.es_escalonada:
+                        formset_beneficios_directos.instance = nueva_promocion
+                        formset_beneficios_directos.save()
+                    else: # Si es escalonada, borrar beneficios directos por si acaso
+                        if promocion: # Si estamos editando una promoción existente
+                            BeneficioPromocion.objects.filter(promocion=promocion, escala__isnull=True).delete()
+
+
+                    # Guardar escalas y SUS beneficios "aplanados"
+                    if nueva_promocion.es_escalonada:
+                        formset_escalas.instance = nueva_promocion
+                        
+                        # Guardar las instancias de EscalaPromocion
+                        # El save() del formset llamará al save() de cada EscalaPromocionModelForm.
+                        # Dentro del save() de EscalaPromocionModelForm NO debemos llamar a save_beneficios().
+                        # Lo haremos explícitamente después.
+                        
+                        # Guardar instancias de EscalaPromocion.
+                        # No podemos llamar a form_escala.save_beneficios() dentro del save() del form
+                        # si la escala es nueva y aún no tiene PK.
+                        
+                        # Paso 1: Guardar las escalas (crea/actualiza EscalaPromocion)
+                        # commit=True es necesario aquí para que las instancias de escala tengan PK
+                        # antes de que intentemos guardar sus beneficios.
+                        escalas_instances = formset_escalas.save(commit=True) # Esto guarda las escalas
+
+                        # Paso 2: Iterar sobre los formularios del formset (que ahora tienen instancias)
+                        # y llamar al método personalizado para guardar los beneficios.
+                        for form_escala in formset_escalas.forms:
+                            if form_escala.is_valid() and form_escala.has_changed(): # Solo si es válido y tiene cambios
+                                if form_escala.cleaned_data.get('DELETE', False):
+                                    # El formset.save() ya debería haber manejado la eliminación de la escala
+                                    # y CASCADE debería eliminar sus beneficios.
+                                    # Si no, necesitarías: if form_escala.instance.pk: form_escala.instance.delete()
+                                    pass
+                                else:
+                                    # form_escala.instance ya es la instancia de EscalaPromocion guardada.
+                                    if form_escala.instance.pk: # Asegurarse que la escala tiene PK
+                                        form_escala.save_beneficios(escala_instance=form_escala.instance)
+                    else: # Si no es escalonada, borrar escalas existentes por si acaso
+                        if promocion: # Si estamos editando
+                             EscalaPromocion.objects.filter(promocion=promocion).delete()
+
+
+                    messages.success(request, f"Promoción '{nueva_promocion.nombre}' {action_text.lower()}da correctamente.")
+                    return redirect('detalle_promocion', promocion_id=nueva_promocion.promocion_id)
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error al guardar: {e}")
+                # Aquí es bueno imprimir el error en la consola del servidor para depuración
+                print(f"Error en transacción de guardar promoción: {e}")
+
+
+        else: # Si algún formulario o formset no es válido
+            messages.error(request, "Por favor corrija los errores en el formulario.")
+            # Debugging de errores
+            print("Errores form_promocion:", form_promocion.errors, form_promocion.non_field_errors())
+            print("Errores formset_condiciones:", formset_condiciones.errors, formset_condiciones.non_form_errors())
+            print("Errores formset_escalas:", formset_escalas.errors, formset_escalas.non_form_errors())
+            for i, form_err in enumerate(formset_escalas.errors):
+                if form_err: print(f"  Errores en Escala form {i}: {form_err}")
+            print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors, formset_beneficios_directos.non_form_errors())
+
+    else: # GET request
+        form_promocion = PromocionModelForm(instance=promocion, prefix="promo")
+        formset_condiciones = CondicionPromocionFormSet(instance=promocion, prefix="cond")
+        formset_escalas = EscalaPromocionFormSet(instance=promocion, prefix="escala")
+        formset_beneficios_directos = BeneficioDirectoPromocionFormSet(instance=promocion, prefix="benef_directo")
+
+    context = {
+        'form_promocion': form_promocion,
+        'formset_condiciones': formset_condiciones,
+        'formset_escalas': formset_escalas,
+        'formset_beneficios_directos': formset_beneficios_directos,
+        'promocion': promocion,
+        'action_text': action_text
+    }
+    return render(request, 'core/promociones/gestionar_promocion_completa.html', context)
+
+@login_required
 def eliminar_promocion(request, promocion_id):
     promocion = get_object_or_404(Promocion, promocion_id=promocion_id)
     if request.method == 'POST':
@@ -821,7 +933,7 @@ def buscar_articulos_json(request):
 # from .forms import PromocionModelForm, CondicionPromocionFormSet, EscalaPromocionFormSet, BeneficioDirectoPromocionFormSet
 
 @login_required
-def gestionar_promocion_completa(request, promocion_id=None): # Para crear o editar
+def gestionar_promocion_completa(request, promocion_id=None):
     if promocion_id:
         promocion = get_object_or_404(Promocion, promocion_id=promocion_id)
         action_text = "Editar"
@@ -831,7 +943,6 @@ def gestionar_promocion_completa(request, promocion_id=None): # Para crear o edi
 
     if request.method == 'POST':
         form_promocion = PromocionModelForm(request.POST, instance=promocion, prefix="promo")
-        # Es importante usar prefijos si tienes múltiples formsets/forms en una página
         formset_condiciones = CondicionPromocionFormSet(request.POST, instance=promocion, prefix="cond")
         formset_escalas = EscalaPromocionFormSet(request.POST, instance=promocion, prefix="escala")
         formset_beneficios_directos = BeneficioDirectoPromocionFormSet(request.POST, instance=promocion, prefix="benef_directo")
@@ -841,28 +952,55 @@ def gestionar_promocion_completa(request, promocion_id=None): # Para crear o edi
             formset_escalas.is_valid() and
             formset_beneficios_directos.is_valid()):
 
-            nueva_promocion = form_promocion.save()
-            
-            # Guardar formsets asociados a la promocion principal
-            formset_condiciones.instance = nueva_promocion
-            formset_condiciones.save()
-            
-            formset_escalas.instance = nueva_promocion
-            escalas_guardadas = formset_escalas.save() # Devuelve las instancias guardadas
+            with transaction.atomic(): # Envolver todo en una transacción
+                nueva_promocion = form_promocion.save()
+                
+                formset_condiciones.instance = nueva_promocion
+                formset_condiciones.save()
+                
+                formset_escalas.instance = nueva_promocion
+                # Guardar los formularios de escala. Esto NO guarda los beneficios aún.
+                # `forms_saved` contiene las instancias de EscalaPromocion guardadas o actualizadas.
+                escalas_guardadas = formset_escalas.save() # save() del formset base
 
-            # Aquí es donde se vuelve más complejo si quieres gestionar beneficios POR ESCALA en la misma vista.
-            # Podrías necesitar un bucle y procesar un formset de BeneficioEscalaPromocionFormSet
-            # para cada instancia de escala guardada, o manejarlo en una vista separada.
-            # Por simplicidad, omitimos los beneficios de escala aquí, se gestionarían aparte o con JS avanzado.
+                # Ahora, para cada formulario de escala que fue guardado (o está siendo creado),
+                # llama al método save_beneficio que definimos en EscalaPromocionModelForm.
+                for form_escala in formset_escalas:
+                    if form_escala.is_valid() and form_escala.has_changed(): # Procesar solo si es válido y cambió
+                        if form_escala.cleaned_data.get('DELETE'):
+                            # Si la escala se marca para eliminar, el formset.save() ya la maneja.
+                            # Los beneficios asociados se borrarán por CASCADE si la FK en BeneficioPromocion
+                            # tiene on_delete=models.CASCADE hacia EscalaPromocion.
+                            pass
+                        else:
+                            # La instancia de escala ya fue creada/actualizada por formset_escalas.save()
+                            # o se creará si es un form nuevo.
+                            # Si es un form nuevo, form_escala.instance.pk será None antes de este save.
+                            # El save() del ModelForm (EscalaPromocionModelForm) será llamado por el formset.save().
+                            # Necesitamos asegurar que la instancia de escala esté guardada ANTES de llamar a save_beneficio.
+                            # `form_escala.instance` después de `formset_escalas.save()` debería tener el objeto Escala con su PK.
+                            if form_escala.instance.pk: # Solo si la escala se guardó o ya existía
+                                form_escala.save_beneficio(escala_instance=form_escala.instance)
 
-            formset_beneficios_directos.instance = nueva_promocion
-            formset_beneficios_directos.save()
+
+                formset_beneficios_directos.instance = nueva_promocion
+                formset_beneficios_directos.save()
             
             messages.success(request, f"Promoción '{nueva_promocion.nombre}' {action_text.lower()}da correctamente.")
             return redirect('detalle_promocion', promocion_id=nueva_promocion.promocion_id)
         else:
-            messages.error(request, "Por favor corrija los errores.")
-    else:
+            messages.error(request, "Por favor corrija los errores en el formulario.")
+            # Imprimir errores para depuración
+            # print("Errores form_promocion:", form_promocion.errors)
+            # print("Errores formset_condiciones:", formset_condiciones.errors)
+            # print("Errores formset_condiciones non_form_errors:", formset_condiciones.non_form_errors())
+            # print("Errores formset_escalas:", formset_escalas.errors)
+            # print("Errores formset_escalas non_form_errors:", formset_escalas.non_form_errors())
+            # print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors)
+            # print("Errores formset_beneficios_directos non_form_errors:", formset_beneficios_directos.non_form_errors())
+
+
+    else: # GET request
         form_promocion = PromocionModelForm(instance=promocion, prefix="promo")
         formset_condiciones = CondicionPromocionFormSet(instance=promocion, prefix="cond")
         formset_escalas = EscalaPromocionFormSet(instance=promocion, prefix="escala")

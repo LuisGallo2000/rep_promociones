@@ -1,0 +1,269 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}{{ action_text }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .autocomplete-suggestions { border: 1px solid #ddd; max-height: 150px; overflow-y: auto; position: absolute; background-color: white; z-index: 999; width: 100%; }
+    .autocomplete-suggestion { padding: 8px; cursor: pointer; }
+    .autocomplete-suggestion:hover { background-color: #f0f0f0; }
+    .form-item-container { position: relative; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <h2>{{ action_text }}</h2>
+    <p><strong>Promoción Padre:</strong> <a href="{% url 'detalle_promocion' promocion.promocion_id %}">{{ promocion.nombre }}</a></p>
+    <p><strong>Escala:</strong> 
+        Desde Cant: {{ escala.desde_cantidad|default_if_none:"N/A" }}, 
+        Hasta Cant: {{ escala.hasta_cantidad|default_if_none:"N/A" }} / 
+        Desde Monto: {{ escala.desde_monto|default_if_none:"N/A" }}, 
+        Hasta Monto: {{ escala.hasta_monto|default_if_none:"N/A" }}
+    </p>
+    <hr>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ formset_beneficios_escala.management_form }}
+        {% for error in formset_beneficios_escala.non_form_errors %}<div class="alert alert-danger p-2">{{ error }}</div>{% endfor %}
+
+        <div id="beneficios-escala-forms-container">
+            {% for form_benef_escala in formset_beneficios_escala %}
+                <div class="beneficio-escala-form-item p-3 mb-3 border rounded" data-prefix="{{ form_benef_escala.prefix }}">
+                    <h5>Beneficio de Escala #<span class="form-counter">{{ forloop.counter }}</span></h5>
+                    {% if form_benef_escala.non_field_errors %}<div class="alert alert-danger p-2">{{ form_benef_escala.non_field_errors }}</div>{% endif %}
+                    
+                    {{ form_benef_escala.articulo_bonificado }} {# HiddenInput #}
+                    {% if form_benef_escala.instance.pk %}{{ form_benef_escala.id }}{% endif %}
+
+                    <div class="mb-2">
+                        <label for="{{ form_benef_escala.tipo.id_for_label }}" class="form-label">{{ form_benef_escala.tipo.label }}</label>
+                        {{ form_benef_escala.tipo }}
+                        {% for error in form_benef_escala.tipo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-2 campo-articulo-bonificado form-item-container">
+                        <label for="{{ form_benef_escala.articulo_bonificado_search.id_for_label }}" class="form-label">{{ form_benef_escala.articulo_bonificado_search.label }}</label>
+                        {{ form_benef_escala.articulo_bonificado_search }}
+                        <div class="autocomplete-suggestions-container"></div>
+                        {% for error in form_benef_escala.articulo_bonificado_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                        {% for error in form_benef_escala.articulo_bonificado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="mb-2 campo-cantidad-bonificada">
+                        <label for="{{ form_benef_escala.cantidad_bonificada.id_for_label }}" class="form-label">{{ form_benef_escala.cantidad_bonificada.label }}</label>
+                        {{ form_benef_escala.cantidad_bonificada }}
+                        {% for error in form_benef_escala.cantidad_bonificada.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="mb-2 campo-porcentaje-descuento">
+                        <label for="{{ form_benef_escala.porcentaje_descuento.id_for_label }}" class="form-label">{{ form_benef_escala.porcentaje_descuento.label }}</label>
+                        {{ form_benef_escala.porcentaje_descuento }}
+                        {% for error in form_benef_escala.porcentaje_descuento.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    {% if form_benef_escala.instance.pk and form_benef_escala.DELETE %}
+                    <div class="form-check mt-2">
+                        {{ form_benef_escala.DELETE }}
+                        <label class="form-check-label" for="{{ form_benef_escala.DELETE.id_for_label }}">Eliminar este beneficio de escala</label>
+                    </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button" id="add-beneficio-escala-form" class="btn btn-outline-secondary btn-sm mb-3">Añadir Beneficio a esta Escala</button>
+        <hr>
+
+        <button type="submit" class="btn btn-primary">Guardar Beneficios de Escala</button>
+        <a href="{% url 'detalle_promocion' promocion.promocion_id %}" class="btn btn-secondary">Volver al Detalle de Promoción</a>
+    </form>
+
+    <template id="empty-beneficio-escala-form-template">
+        {% with form_benef_escala=formset_beneficios_escala.empty_form %}
+        <div class="beneficio-escala-form-item p-3 mb-3 border rounded" data-prefix="__prefix__">
+            <h5>Beneficio de Escala Nuevo #<span class="form-counter">__prefix_num__</span></h5>
+            {{ form_benef_escala.articulo_bonificado }}
+            <div class="mb-2">
+                <label for="{{ form_benef_escala.tipo.id_for_label }}" class="form-label">{{ form_benef_escala.tipo.label }}</label>
+                {{ form_benef_escala.tipo }}
+            </div>
+            <div class="mb-2 campo-articulo-bonificado form-item-container">
+                <label for="{{ form_benef_escala.articulo_bonificado_search.id_for_label }}" class="form-label">{{ form_benef_escala.articulo_bonificado_search.label }}</label>
+                {{ form_benef_escala.articulo_bonificado_search }}
+                <div class="autocomplete-suggestions-container"></div>
+            </div>
+            <div class="mb-2 campo-cantidad-bonificada">
+                <label for="{{ form_benef_escala.cantidad_bonificada.id_for_label }}" class="form-label">{{ form_benef_escala.cantidad_bonificada.label }}</label>
+                {{ form_benef_escala.cantidad_bonificada }}
+            </div>
+            <div class="mb-2 campo-porcentaje-descuento">
+                <label for="{{ form_benef_escala.porcentaje_descuento.id_for_label }}" class="form-label">{{ form_benef_escala.porcentaje_descuento.label }}</label>
+                {{ form_benef_escala.porcentaje_descuento }}
+            </div>
+        </div>
+        {% endwith %}
+    </template>
+</div>
+
+<script>
+// Reutilizar las funciones setupGenericAutocomplete, initializeFormsetSubForms (o una versión adaptada), 
+// toggleBeneficioFields y setupFormsetCloning del script de gestionar_promocion_completa.html.
+// Asegúrate de que los selectores y prefijos sean correctos para este formset.
+
+// Función genérica de autocompletar (COPIAR DE GESTIONAR_PROMOCION_COMPLETA.HTML)
+function setupGenericAutocomplete(formItem, searchInputClass, pkInputClass, suggestionsContainerClassSuffix, searchUrl) {
+    // ... (misma implementación que antes) ...
+    const searchInput = formItem.querySelector('.' + searchInputClass);
+    const pkInput = formItem.querySelector('.' + pkInputClass);
+    const suggestionsContainer = searchInput ? searchInput.nextElementSibling : null; 
+
+    if (!searchInput || !pkInput || !suggestionsContainer || !suggestionsContainer.classList.contains('autocomplete-suggestions-container')) {
+        return;
+    }
+
+    let debounceTimer;
+    searchInput.addEventListener('input', function(e) {
+        clearTimeout(debounceTimer);
+        const term = e.target.value;
+        suggestionsContainer.innerHTML = '';
+        if (pkInput.value) { pkInput.value = ''; }
+
+        if (term.length < 2) {
+            if (pkInput.getAttribute('data-last-selected-text') && pkInput.getAttribute('data-last-selected-text') !== term) {
+                 pkInput.value = '';
+            }
+            return;
+        }
+        debounceTimer = setTimeout(() => {
+            let fullSearchUrl = `${searchUrl}?term=${encodeURIComponent(term)}`;
+            fetch(fullSearchUrl)
+                .then(response => {
+                    if (!response.ok) { throw new Error(`Network response was not ok: ${response.statusText}`); }
+                    return response.json();
+                })
+                .then(data => {
+                    suggestionsContainer.innerHTML = ''; 
+                    if (data && data.length > 0) {
+                        const ul = document.createElement('ul');
+                        ul.className = 'list-unstyled autocomplete-suggestions';
+                        data.forEach(item => {
+                            const li = document.createElement('li');
+                            li.textContent = item.text; 
+                            li.className = 'autocomplete-suggestion';
+                            li.setAttribute('data-id', item.id);
+                            li.addEventListener('click', function() {
+                                searchInput.value = item.text;
+                                pkInput.value = item.id; 
+                                pkInput.setAttribute('data-last-selected-text', item.text);
+                                suggestionsContainer.innerHTML = ''; 
+                            });
+                            ul.appendChild(li);
+                        });
+                        suggestionsContainer.appendChild(ul);
+                    } else {
+                        suggestionsContainer.innerHTML = '<div class="p-2 text-muted small">No se encontraron resultados.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching autocomplete data:', searchUrl, error);
+                    suggestionsContainer.innerHTML = `<div class="p-2 text-danger small">Error: ${error.message}</div>`;
+                });
+        }, 350); 
+    });
+    document.addEventListener('click', function(event) { 
+        if (suggestionsContainer && !suggestionsContainer.contains(event.target) && !searchInput.contains(event.target)) {
+            suggestionsContainer.innerHTML = '';
+        }
+    });
+}
+
+function initializeBeneficioEscalaForm(formItemElement) {
+    setupGenericAutocomplete(formItemElement, 'articulo-bonificado-search-input', 'articulo-bonificado-pk-input', '.autocomplete-suggestions-container', "{% url 'buscar_articulos_json' %}");
+    
+    const tipoBeneficioSelect = formItemElement.querySelector('.tipo-beneficio');
+    if (tipoBeneficioSelect) {
+        toggleBeneficioFields(formItemElement, tipoBeneficioSelect.value);
+        tipoBeneficioSelect.addEventListener('change', function(event) {
+            toggleBeneficioFields(formItemElement, event.target.value);
+        });
+    }
+}
+
+function toggleBeneficioFields(formItem, tipoBeneficio) { // (COPIAR DE GESTIONAR_PROMOCION_COMPLETA.HTML)
+    // ... (misma implementación que antes) ...
+    const articuloFieldDiv = formItem.querySelector('.campo-articulo-bonificado');
+    const cantidadFieldDiv = formItem.querySelector('.campo-cantidad-bonificada');
+    const porcentajeFieldDiv = formItem.querySelector('.campo-porcentaje-descuento');
+
+    if (articuloFieldDiv) articuloFieldDiv.style.display = 'none';
+    if (cantidadFieldDiv) cantidadFieldDiv.style.display = 'none';
+    if (porcentajeFieldDiv) porcentajeFieldDiv.style.display = 'none';
+
+    if (tipoBeneficio === 'bonificacion') {
+        if (articuloFieldDiv) articuloFieldDiv.style.display = '';
+        if (cantidadFieldDiv) cantidadFieldDiv.style.display = '';
+    } else if (tipoBeneficio === 'descuento') {
+        if (porcentajeFieldDiv) porcentajeFieldDiv.style.display = '';
+    }
+}
+
+
+function setupFormsetCloning(containerId, addButtonId, templateId, formsetPrefix, initCallback) { // (COPIAR DE GESTIONAR_PROMOCION_COMPLETA.HTML)
+    // ... (misma implementación que antes, asegurándose que formsetPrefix sea el correcto) ...
+    const container = document.getElementById(containerId);
+    const addButton = document.getElementById(addButtonId);
+    const templateElement = document.getElementById(templateId);
+    const totalFormsInput = document.querySelector(`#id_${formsetPrefix}-TOTAL_FORMS`);
+    
+    if (!container || !addButton || !templateElement || !totalFormsInput) {
+        return;
+    }
+    
+    const formItemClass = templateElement.content.firstElementChild.classList[0];
+    let formNum = container.querySelectorAll('.' + formItemClass).length;
+
+    addButton.addEventListener('click', function() {
+        const newFormFragment = templateElement.content.cloneNode(true);
+        const newFormElement = newFormFragment.firstElementChild;
+
+        if (newFormElement) {
+            const prefixRegex = new RegExp('__prefix__', 'g');
+            newFormElement.innerHTML = newFormElement.innerHTML.replace(prefixRegex, formNum);
+            newFormElement.setAttribute('data-prefix', `${formsetPrefix}-${formNum}`);
+            
+            const counterSpan = newFormElement.querySelector('.form-counter');
+            if(counterSpan) counterSpan.textContent = formNum + 1;
+
+            newFormElement.querySelectorAll('input[type="text"], input[type="number"], input[type="hidden"], select').forEach(input => {
+                if (input.type === 'checkbox' || input.type === 'radio') { input.checked = false; } 
+                else if (input.tagName === 'SELECT') { input.selectedIndex = 0;} 
+                else if (input.name && !input.name.includes('TOTAL_FORMS') && !input.name.includes('INITIAL_FORMS')) { input.value = '';}
+            });
+            newFormElement.querySelectorAll('.articulo-bonificado-search-input').forEach(input => input.value = '');
+            newFormElement.querySelectorAll('.articulo-bonificado-pk-input').forEach(input => input.value = '');
+
+            container.appendChild(newFormElement);
+            totalFormsInput.value = formNum + 1;
+            
+            if (initCallback) { initCallback(newFormElement); }
+            formNum++;
+        }
+    });
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar para forms existentes
+    document.querySelectorAll('.beneficio-escala-form-item').forEach(item => initializeBeneficioEscalaForm(item));
+
+    // Setup para clonar forms
+    setupFormsetCloning(
+        'beneficios-escala-forms-container', 
+        'add-beneficio-escala-form', 
+        'empty-beneficio-escala-form-template', 
+        '{{ formset_beneficios_escala.prefix }}', // Asegúrate que este prefijo sea el del formset
+        initializeBeneficioEscalaForm
+    );
+});
+</script>
+{% endblock %}
