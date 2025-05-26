@@ -109,22 +109,22 @@
     {# ---------- TEMPLATES VACÍOS PARA CLONAR ---------- #}
     <template id="empty-condicion-form-template">
         {% with form_cond=formset_condiciones.empty_form %}
-        <div class="condicion-form-item p-3 mb-3 border rounded" data-prefix="_prefix_">
-            <h5>Condición Nueva #<span class="form-counter">_prefix_num_</span></h5>
+        <div class="condicion-form-item p-3 mb-3 border rounded" data-prefix="__prefix__">
+            <h5>Condición Nueva #<span class="form-counter">__prefix_num__</span></h5>
             {{ form_cond.articulo }} {{ form_cond.linea }} {{ form_cond.grupo }}
-            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-_prefix_-articulo_search" class="form-label">{{ form_cond.articulo_search.label }}</label> {{ form_cond.articulo_search }} <div class="autocomplete-suggestions-container"></div></div>
-            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-_prefix_-linea_search" class="form-label">{{ form_cond.linea_search.label }}</label> {{ form_cond.linea_search }} <div class="autocomplete-suggestions-container"></div></div>
-            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-_prefix_-grupo_search" class="form-label">{{ form_cond.grupo_search.label }}</label> {{ form_cond.grupo_search }} <div class="autocomplete-suggestions-container"></div></div>
-            <div class="row"><div class="col-md-6 mb-2"><label for="id_{{ form_cond.prefix }}-_prefix-cantidad_minima" class="form-label">{{ form_cond.cantidad_minima.label }}</label> {{ form_cond.cantidad_minima }}</div><div class="col-md-6 mb-2"><label for="id{{ form_cond.prefix }}-_prefix_-monto_minimo" class="form-label">{{ form_cond.monto_minimo.label }}</label> {{ form_cond.monto_minimo }}</div></div>
-            <div class="form-check mb-2">{{ form_cond.obligatoria_en_conjunto }} <label class="form-check-label" for="id_{{ form_cond.prefix }}-_prefix_-obligatoria_en_conjunto">{{ form_cond.obligatoria_en_conjunto.label }}</label></div>
+            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-__prefix__-articulo_search" class="form-label">{{ form_cond.articulo_search.label }}</label> {{ form_cond.articulo_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-__prefix__-linea_search" class="form-label">{{ form_cond.linea_search.label }}</label> {{ form_cond.linea_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-__prefix__-grupo_search" class="form-label">{{ form_cond.grupo_search.label }}</label> {{ form_cond.grupo_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="row"><div class="col-md-6 mb-2"><label for="id_{{ form_cond.prefix }}-__prefix__-cantidad_minima" class="form-label">{{ form_cond.cantidad_minima.label }}</label> {{ form_cond.cantidad_minima }}</div><div class="col-md-6 mb-2"><label for="id_{{ form_cond.prefix }}-__prefix__-monto_minimo" class="form-label">{{ form_cond.monto_minimo.label }}</label> {{ form_cond.monto_minimo }}</div></div>
+            <div class="form-check mb-2">{{ form_cond.obligatoria_en_conjunto }} <label class="form-check-label" for="id_{{ form_cond.prefix }}-__prefix__-obligatoria_en_conjunto">{{ form_cond.obligatoria_en_conjunto.label }}</label></div>
         </div>
         {% endwith %}
     </template>
 
     <template id="empty-escala-form-template">
         {% with form_escala=formset_escalas.empty_form %}
-        <div class="escala-form-item p-3 mb-3 border rounded" data-prefix="_prefix_">
-            <h5>Escala Nueva #<span class="form-counter">_prefix_num_</span></h5>
+        <div class="escala-form-item p-3 mb-3 border rounded" data-prefix="__prefix__">
+            <h5>Escala Nueva #<span class="form-counter">__prefix_num__</span></h5>
             {% for field in form_escala %}
                 <div class="mb-2">
                     <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
@@ -141,13 +141,13 @@
 
     <template id="empty-beneficio-directo-form-template">
         {% with form_benef=formset_beneficios_directos.empty_form %}
-        <div class="beneficio-directo-form-item p-3 mb-3 border rounded" data-prefix="_prefix_">
-            <h5>Beneficio Directo Nuevo #<span class="form-counter">_prefix_num_</span></h5>
+        <div class="beneficio-directo-form-item p-3 mb-3 border rounded" data-prefix="__prefix__">
+            <h5>Beneficio Directo Nuevo #<span class="form-counter">__prefix_num__</span></h5>
             {{ form_benef.articulo_bonificado }}
-            <div class="mb-2"><label for="id_{{ form_benef.prefix }}-_prefix_-tipo" class="form-label">{{ form_benef.tipo.label }}</label> {{ form_benef.tipo }}</div>
-            <div class="mb-2 campo-articulo-bonificado form-item-container"><label for="id_{{ form_benef.prefix }}-_prefix_-articulo_bonificado_search" class="form-label">{{ form_benef.articulo_bonificado_search.label }}</label> {{ form_benef.articulo_bonificado_search }} <div class="autocomplete-suggestions-container"></div></div>
-            <div class="mb-2 campo-cantidad-bonificada"><label for="id_{{ form_benef.prefix }}-_prefix_-cantidad_bonificada" class="form-label">{{ form_benef.cantidad_bonificada.label }}</label> {{ form_benef.cantidad_bonificada }}</div>
-            <div class="mb-2 campo-porcentaje-descuento"><label for="id_{{ form_benef.prefix }}-_prefix_-porcentaje_descuento" class="form-label">{{ form_benef.porcentaje_descuento.label }}</label> {{ form_benef.porcentaje_descuento }}</div>
+            <div class="mb-2"><label for="id_{{ form_benef.prefix }}-__prefix__-tipo" class="form-label">{{ form_benef.tipo.label }}</label> {{ form_benef.tipo }}</div>
+            <div class="mb-2 campo-articulo-bonificado form-item-container"><label for="id_{{ form_benef.prefix }}-__prefix__-articulo_bonificado_search" class="form-label">{{ form_benef.articulo_bonificado_search.label }}</label> {{ form_benef.articulo_bonificado_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="mb-2 campo-cantidad-bonificada"><label for="id_{{ form_benef.prefix }}-__prefix__-cantidad_bonificada" class="form-label">{{ form_benef.cantidad_bonificada.label }}</label> {{ form_benef.cantidad_bonificada }}</div>
+            <div class="mb-2 campo-porcentaje-descuento"><label for="id_{{ form_benef.prefix }}-__prefix__-porcentaje_descuento" class="form-label">{{ form_benef.porcentaje_descuento.label }}</label> {{ form_benef.porcentaje_descuento }}</div>
         </div>
         {% endwith %}
     </template>
@@ -181,10 +181,10 @@ function setupGenericAutocomplete(formItem, searchInputSelector, pkInputSelector
             return;
         }
         debounceTimer = setTimeout(() => {
-            let fullSearchUrl = ${searchUrl}?term=${encodeURIComponent(term)};
+            let fullSearchUrl = `${searchUrl}?term=${encodeURIComponent(term)}`;
             fetch(fullSearchUrl)
                 .then(response => {
-                    if (!response.ok) { throw new Error(Network response was not ok: ${response.statusText}); }
+                    if (!response.ok) { throw new Error(`Network response was not ok: ${response.statusText}`); }
                     return response.json();
                 })
                 .then(data => {
@@ -211,7 +211,7 @@ function setupGenericAutocomplete(formItem, searchInputSelector, pkInputSelector
                 })
                 .catch(error => {
                     console.error('Error fetching autocomplete data:', searchUrl, error);
-                    suggestionsContainer.innerHTML = <div class="p-2 text-danger small">Error: ${error.message}</div>;
+                    suggestionsContainer.innerHTML = `<div class="p-2 text-danger small">Error: ${error.message}</div>`;
                 });
         }, 350); 
     });
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById(containerId);
         const addButton = document.getElementById(addButtonId);
         const templateElement = document.getElementById(templateId);
-        const totalFormsInput = document.querySelector(#id_${formsetPrefix}-TOTAL_FORMS);
+        const totalFormsInput = document.querySelector(`#id_${formsetPrefix}-TOTAL_FORMS`);
         
         if (!container || !addButton || !templateElement || !totalFormsInput) {
             // console.warn("Faltan elementos para setupFormsetCloning:", {containerId, addButtonId, templateId, formsetPrefix});
@@ -290,19 +290,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const newFormElement = newFormFragment.firstElementChild;
 
             if (newFormElement) {
-                const prefixRegex = new RegExp('_prefix_', 'g');
-                const counterRegex = new RegExp('_prefix_num_', 'g'); 
+                const prefixRegex = new RegExp('__prefix__', 'g');
+                const counterRegex = new RegExp('__prefix_num__', 'g'); 
 
-                newFormElement.querySelectorAll('[name*="_prefix"], [id*="prefix"], [for*="prefix_"]').forEach(el => {
+                newFormElement.querySelectorAll('[name*="__prefix__"], [id*="__prefix__"], [for*="__prefix__"]').forEach(el => {
                     ['id', 'name', 'for'].forEach(attr => {
                         const oldValue = el.getAttribute(attr);
-                        if (oldValue && oldValue.includes('_prefix_')) {
+                        if (oldValue && oldValue.includes('__prefix__')) {
                             el.setAttribute(attr, oldValue.replace(prefixRegex, formNum));
                         }
                     });
                 });
                 
-                newFormElement.setAttribute('data-prefix', ${formsetPrefix}-${formNum});
+                newFormElement.setAttribute('data-prefix', `${formsetPrefix}-${formNum}`);
                 
                 const counterSpan = newFormElement.querySelector('.form-counter');
                 if(counterSpan) {

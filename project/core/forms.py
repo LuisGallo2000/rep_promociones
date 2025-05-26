@@ -77,37 +77,55 @@ class CondicionPromocionModelForm(forms.ModelForm):
         return cleaned_data
 
 
-class BeneficioPromocionModelForm(forms.ModelForm): # Este se usará para Beneficios Directos Y Beneficios de Escala
-    articulo_bonificado_search = forms.CharField(label='Buscar Artículo (Bonificación)', required=False, widget=forms.TextInput(attrs={'class': 'form-control articulo-bonificado-search-input'}))
+class BeneficioPromocionModelForm(forms.ModelForm):
+    articulo_bonificado_search = forms.CharField(
+        label='Buscar Artículo (Bonificación)', 
+        required=False, 
+        widget=forms.TextInput(attrs={'class': 'form-control articulo-bonificado-search-input', 'placeholder': 'Buscar artículo...'})
+    )
+
     class Meta:
         model = BeneficioPromocion
-        exclude = ['promocion', 'escala', 'beneficiopromocion_id'] 
-        fields = ['tipo', 'articulo_bonificado', 'cantidad_bonificada', 'porcentaje_descuento', 'articulo_bonificado_search']
+        exclude = ['promocion', 'escala', 'beneficiopromocion_id']
+        fields = [
+            'tipo', 'articulo_bonificado', 'cantidad_bonificada', 'porcentaje_descuento',
+            'articulo_bonificado_search'
+        ]
         widgets = {
             'tipo': forms.Select(attrs={'class': 'form-select tipo-beneficio'}),
             'articulo_bonificado': forms.HiddenInput(attrs={'class': 'articulo-bonificado-pk-input'}),
-            'cantidad_bonificada': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-            'porcentaje_descuento': forms.NumberInput(attrs={'class': 'form-control', 'step':'0.01', 'min':'0', 'max':'100'})
+            'cantidad_bonificada': forms.NumberInput(attrs={'class': 'form-control cantidad-bonificada', 'placeholder': 'Cantidad'}),
+            'porcentaje_descuento': forms.NumberInput(attrs={'class': 'form-control porcentaje-descuento', 'step': '0.01', 'placeholder': 'Porcentaje'}),
         }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.articulo_bonificado:
             self.initial['articulo_bonificado_search'] = f"E:{self.instance.articulo_bonificado.empresa.empresa_id} | {self.instance.articulo_bonificado.codigo_articulo} - {self.instance.articulo_bonificado.descripcion}"
-        self.fields['articulo_bonificado'].required = False
+        
+        self.fields['articulo_bonificado'].required = False # El campo FK se vuelve no requerido
         self.fields['cantidad_bonificada'].required = False
         self.fields['porcentaje_descuento'].required = False
+
     def clean(self):
         cleaned_data = super().clean()
         tipo = cleaned_data.get("tipo")
+
         if tipo == "bonificacion":
+            # El ID del artículo bonificado debería estar en cleaned_data['articulo_bonificado']
+            # si el JS lo puso correctamente en el hidden input.
             if not cleaned_data.get("articulo_bonificado"):
-                if cleaned_data.get("articulo_bonificado_search"): self.add_error('articulo_bonificado_search', 'Debe seleccionar un artículo válido.')
-                else: self.add_error('articulo_bonificado_search', 'Artículo es requerido.')
-            if not cleaned_data.get("cantidad_bonificada") or cleaned_data.get("cantidad_bonificada", 0) <=0:
-                self.add_error('cantidad_bonificada', 'Cantidad debe ser un número positivo.')
+                # Si el campo de búsqueda tiene texto pero el ID no se seteó, podría ser un error
+                if cleaned_data.get("articulo_bonificado_search"):
+                     self.add_error('articulo_bonificado_search', 'Debe seleccionar un artículo válido de la lista.')
+                else: # Si ni el campo de búsqueda ni el ID tienen valor
+                     self.add_error('articulo_bonificado_search', 'Este campo es requerido para bonificación.')
+
+            if not cleaned_data.get("cantidad_bonificada"):
+                self.add_error('cantidad_bonificada', 'Este campo es requerido para bonificación.')
         elif tipo == "descuento":
-            if not cleaned_data.get("porcentaje_descuento") or cleaned_data.get("porcentaje_descuento", Decimal(0)) <=0:
-                self.add_error('porcentaje_descuento', 'Porcentaje debe ser un número positivo.')
+            if not cleaned_data.get("porcentaje_descuento"):
+                self.add_error('porcentaje_descuento', 'Este campo es requerido para descuento.')
         return cleaned_data
 
 # === FORMULARIOS BÁSICOS DE CATÁLOGOS ===
@@ -245,8 +263,7 @@ class EscalaPromocionModelForm(forms.ModelForm): # VERSIÓN SIMPLIFICADA
             'hasta_cantidad': forms.NumberInput(attrs={'class': 'form-control'}),
             'proporcional': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
-    # No necesita métodos _init_, clean o save_beneficios personalizados para este enfoque
-    
+
 # El EscalaPromocionFormSet usará este EscalaPromocionModelForm
 EscalaPromocionFormSet = inlineformset_factory(
     Promocion,
