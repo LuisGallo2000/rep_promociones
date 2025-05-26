@@ -32,4 +32,6 @@ urlpatterns = [
     path('buscar-articulos-json/', views.buscar_articulos_json, name='buscar_articulos_json'),
     path('buscar-lineas-json/', views.buscar_lineas_json, name='buscar_lineas_json'),
     path('buscar-grupos-json/', views.buscar_grupos_json, name='buscar_grupos_json'),
+
+    path('promociones/escalas/<uuid:escala_id>/gestionar-beneficios/', views.gestionar_beneficios_de_escala, name='gestionar_beneficios_escala'),
 ]

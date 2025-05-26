@@ -70,6 +70,13 @@ class Articulo(models.Model):
     tipo_producto = models.CharField(max_length=50)
     afecto_retencion = models.BooleanField(default=False)
     afecto_detraccion = models.BooleanField(default=False)
+    precio_venta = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True,
+        blank=True,
+        help_text="Precio de venta unitario del artículo. Puede ser nulo y especificarse en el pedido."
+    )
     class Meta:
         unique_together = ('empresa', 'codigo_articulo')
     def __str__(self):

@@ -5,33 +5,11 @@
 
 {% block head_extra %}
 <style>
-    .autocomplete-suggestions {
-        border: 1px solid #ddd;
-        border-top: none;
-        max-height: 200px;
-        overflow-y: auto;
-        position: absolute;
-        background-color: white;
-        z-index: 1050; /* Encima de otros elementos Bootstrap */
-        width: 100%; /* Se ajustará al contenedor relativo */
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .autocomplete-suggestion {
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 0.9rem;
-    }
-    .autocomplete-suggestion:hover {
-        background-color: #f0f0f0;
-    }
-    .form-item-container { /* Para posicionar las sugerencias correctamente */
-        position: relative;
-    }
-    /* Clases para ocultar/mostrar campos de beneficio (estado inicial es oculto por JS) */
-    .escala-beneficio-articulo, .escala-beneficio-cantidad, .escala-beneficio-porcentaje,
-    .campo-articulo-bonificado, .campo-cantidad-bonificada, .campo-porcentaje-descuento {
-        /* display: none; /* El JS se encarga de esto al inicio */
-    }
+    .autocomplete-suggestions { border: 1px solid #ddd; border-top: none; max-height: 200px; overflow-y: auto; position: absolute; background-color: white; z-index: 1050; width: calc(100% - 2px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .autocomplete-suggestion { padding: 8px 12px; cursor: pointer; font-size: 0.9rem; }
+    .autocomplete-suggestion:hover { background-color: #f0f0f0; }
+    .form-item-container { position: relative; }
+    .campo-articulo-bonificado, .campo-cantidad-bonificada, .campo-porcentaje-descuento { /* display: none; */ }
 </style>
 {% endblock %}
 
@@ -42,20 +20,13 @@
     <form method="post" id="promocionForm">
         {% csrf_token %}
 
-        {# ---------- SECCIÓN INFORMACIÓN DE LA PROMOCIÓN ---------- #}
+        {# ---------- INFORMACIÓN DE LA PROMOCIÓN ---------- #}
         <h4>Información de la Promoción</h4>
-        {% for field in form_promocion %}
-            <div class="mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
-                {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-            </div>
-        {% endfor %}
+        {% for field in form_promocion %}<div class="mb-3"><label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>{% endfor %}
         {% if form_promocion.non_field_errors %}<div class="alert alert-danger p-2">{{ form_promocion.non_field_errors|join:", " }}</div>{% endif %}
         <hr>
 
-        {# ---------- SECCIÓN CONDICIONES DE LA PROMOCIÓN ---------- #}
+        {# ---------- CONDICIONES DE LA PROMOCIÓN ---------- #}
         <h4>Condiciones de la Promoción</h4>
         {{ formset_condiciones.management_form }}
         {% if formset_condiciones.non_form_errors %}<div class="alert alert-danger p-2">{{ formset_condiciones.non_form_errors|join:", " }}</div>{% endif %}
@@ -64,64 +35,20 @@
                 <div class="condicion-form-item p-3 mb-3 border rounded" data-prefix="{{ form_cond.prefix }}">
                     <h5>Condición #<span class="form-counter">{{ forloop.counter }}</span></h5>
                     {% if form_cond.non_field_errors %}<div class="alert alert-danger p-2">{{ form_cond.non_field_errors|join:", " }}</div>{% endif %}
-                    
-                    {{ form_cond.articulo }} {# HiddenInput #}
-                    {{ form_cond.linea }}   {# HiddenInput #}
-                    {{ form_cond.grupo }}   {# HiddenInput #}
+                    {{ form_cond.articulo }} {{ form_cond.linea }} {{ form_cond.grupo }}
                     {% if form_cond.instance.pk %}{{ form_cond.id }}{% endif %}
-
-                    <div class="mb-2 form-item-container">
-                        <label for="{{ form_cond.articulo_search.id_for_label }}" class="form-label">{{ form_cond.articulo_search.label }}</label>
-                        {{ form_cond.articulo_search }}
-                        <div class="autocomplete-suggestions-container"></div>
-                        {% for error in form_cond.articulo_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        {% for error in form_cond.articulo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="mb-2 form-item-container">
-                        <label for="{{ form_cond.linea_search.id_for_label }}" class="form-label">{{ form_cond.linea_search.label }}</label>
-                        {{ form_cond.linea_search }}
-                        <div class="autocomplete-suggestions-container"></div>
-                        {% for error in form_cond.linea_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        {% for error in form_cond.linea.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="mb-2 form-item-container">
-                        <label for="{{ form_cond.grupo_search.id_for_label }}" class="form-label">{{ form_cond.grupo_search.label }}</label>
-                        {{ form_cond.grupo_search }}
-                        <div class="autocomplete-suggestions-container"></div>
-                        {% for error in form_cond.grupo_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        {% for error in form_cond.grupo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_cond.cantidad_minima.id_for_label }}" class="form-label">{{ form_cond.cantidad_minima.label }}</label>
-                             {{ form_cond.cantidad_minima }}
-                             {% for error in form_cond.cantidad_minima.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_cond.monto_minimo.id_for_label }}" class="form-label">{{ form_cond.monto_minimo.label }}</label>
-                            {{ form_cond.monto_minimo }}
-                            {% for error in form_cond.monto_minimo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-                    <div class="form-check mb-2">
-                        {{ form_cond.obligatoria_en_conjunto }}
-                        <label class="form-check-label" for="{{ form_cond.obligatoria_en_conjunto.id_for_label }}">{{ form_cond.obligatoria_en_conjunto.label }}</label>
-                    </div>
-
-                    {% if form_cond.instance.pk and form_cond.DELETE %}
-                    <div class="form-check mt-2">
-                        {{ form_cond.DELETE }}
-                        <label class="form-check-label" for="{{ form_cond.DELETE.id_for_label }}">Eliminar esta condición</label>
-                    </div>
-                    {% endif %}
+                    <div class="mb-2 form-item-container"><label for="{{ form_cond.articulo_search.id_for_label }}" class="form-label">{{ form_cond.articulo_search.label }}</label>{{ form_cond.articulo_search }}<div class="autocomplete-suggestions-container"></div>{% for error in form_cond.articulo_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}{% for error in form_cond.articulo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+                    <div class="mb-2 form-item-container"><label for="{{ form_cond.linea_search.id_for_label }}" class="form-label">{{ form_cond.linea_search.label }}</label>{{ form_cond.linea_search }}<div class="autocomplete-suggestions-container"></div>{% for error in form_cond.linea_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}{% for error in form_cond.linea.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+                    <div class="mb-2 form-item-container"><label for="{{ form_cond.grupo_search.id_for_label }}" class="form-label">{{ form_cond.grupo_search.label }}</label>{{ form_cond.grupo_search }}<div class="autocomplete-suggestions-container"></div>{% for error in form_cond.grupo_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}{% for error in form_cond.grupo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+                    <div class="row"><div class="col-md-6 mb-2"><label for="{{ form_cond.cantidad_minima.id_for_label }}" class="form-label">{{ form_cond.cantidad_minima.label }}</label>{{ form_cond.cantidad_minima }}{% for error in form_cond.cantidad_minima.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div><div class="col-md-6 mb-2"><label for="{{ form_cond.monto_minimo.id_for_label }}" class="form-label">{{ form_cond.monto_minimo.label }}</label>{{ form_cond.monto_minimo }}{% for error in form_cond.monto_minimo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div></div>
+                    <div class="form-check mb-2">{{ form_cond.obligatoria_en_conjunto }}<label class="form-check-label" for="{{ form_cond.obligatoria_en_conjunto.id_for_label }}">{{ form_cond.obligatoria_en_conjunto.label }}</label></div>
+                    {% if form_cond.instance.pk and form_cond.DELETE %}<div class="form-check mt-2">{{ form_cond.DELETE }}<label class="form-check-label" for="{{ form_cond.DELETE.id_for_label }}">Eliminar</label></div>{% endif %}
                 </div>
             {% endfor %}
         </div>
         <button type="button" id="add-condicion-form" class="btn btn-outline-secondary btn-sm mb-3">Añadir Condición</button>
         <hr>
 
-        {# ---------- SECCIÓN ESCALAS DE LA PROMOCIÓN ---------- #}
         <h4>Escalas de la Promoción (si la promoción es escalonada)</h4>
         {{ formset_escalas.management_form }}
         {% if formset_escalas.non_form_errors %}<div class="alert alert-danger p-2">{{ formset_escalas.non_form_errors|join:", " }}</div>{% endif %}
@@ -130,115 +57,22 @@
                 <div class="escala-form-item p-3 mb-3 border rounded" data-prefix="{{ form_escala.prefix }}">
                     <h5>Escala #<span class="form-counter">{{ forloop.counter }}</span></h5>
                      {% if form_escala.non_field_errors %}<div class="alert alert-danger p-2">{{ form_escala.non_field_errors|join:", " }}</div>{% endif %}
-                     {% if form_escala.instance.pk %}{{ form_escala.id }}{% endif %} {# ID de la instancia EscalaPromocion #}
+                     {% if form_escala.instance.pk %}{{ form_escala.id }}{% endif %}
                     
-                    {# Campos propios de EscalaPromocion #}
-                    <div class="mb-2">
-                        <label for="{{ form_escala.descripcion_escala.id_for_label }}" class="form-label">{{ form_escala.descripcion_escala.label }}</label>
-                        {{ form_escala.descripcion_escala }}
-                        {% for error in form_escala.descripcion_escala.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_escala.desde_cantidad.id_for_label }}" class="form-label">{{ form_escala.desde_cantidad.label }}</label>
-                            {{ form_escala.desde_cantidad }}
-                            {% for error in form_escala.desde_cantidad.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                    {# Renderizar SOLO los campos propios de EscalaPromocionModelForm (SIN beneficios aplanados) #}
+                    {% for field in form_escala %}
+                        <div class="mb-2">
+                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                            {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
                         </div>
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_escala.hasta_cantidad.id_for_label }}" class="form-label">{{ form_escala.hasta_cantidad.label }}</label>
-                            {{ form_escala.hasta_cantidad }}
-                            {% for error in form_escala.hasta_cantidad.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_escala.desde_monto.id_for_label }}" class="form-label">{{ form_escala.desde_monto.label }}</label>
-                            {{ form_escala.desde_monto }}
-                            {% for error in form_escala.desde_monto.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_escala.hasta_monto.id_for_label }}" class="form-label">{{ form_escala.hasta_monto.label }}</label>
-                            {{ form_escala.hasta_monto }}
-                            {% for error in form_escala.hasta_monto.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-                    <div class="form-check mb-2">
-                        {{ form_escala.proporcional }}
-                        <label class="form-check-label" for="{{ form_escala.proporcional.id_for_label }}">{{ form_escala.proporcional.label }}</label>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_escala.base_cantidad_proporcional_escala.id_for_label }}" class="form-label">{{ form_escala.base_cantidad_proporcional_escala.label }}</label>
-                            {{ form_escala.base_cantidad_proporcional_escala }}
-                            {% for error in form_escala.base_cantidad_proporcional_escala.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-6 mb-2">
-                            <label for="{{ form_escala.base_monto_proporcional_escala.id_for_label }}" class="form-label">{{ form_escala.base_monto_proporcional_escala.label }}</label>
-                            {{ form_escala.base_monto_proporcional_escala }}
-                            {% for error in form_escala.base_monto_proporcional_escala.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
+                    {% endfor %}
                     
-                    {# --- BENEFICIOS "APLANADOS" DENTRO DE LA ESCALA --- #}
-                    <h6 class="mt-4 text-primary fw-bold">Beneficio 1 de esta Escala:</h6>
-                    <div class="ps-3 border-start border-primary mb-3">
-                        {{ form_escala.beneficio1_articulo_bonificado }} {# Hidden Input #}
-                        <div class="mb-2">
-                            <label for="{{ form_escala.beneficio1_tipo.id_for_label }}" class="form-label">{{ form_escala.beneficio1_tipo.label }}</label>
-                            {{ form_escala.beneficio1_tipo }} {# Widget ya tiene 'data-beneficio-idx': '1' y 'beneficio-tipo-escala' #}
-                            {% for error in form_escala.beneficio1_tipo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="mb-2 escala-beneficio-articulo form-item-container" data-beneficio-idx="1">
-                            <label for="{{ form_escala.beneficio1_articulo_bonificado_search.id_for_label }}" class="form-label">{{ form_escala.beneficio1_articulo_bonificado_search.label }}</label>
-                            {{ form_escala.beneficio1_articulo_bonificado_search }} {# Widget ya tiene clase y data-idx #}
-                            <div class="autocomplete-suggestions-container"></div>
-                            {% for error in form_escala.beneficio1_articulo_bonificado_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                            {% for error in form_escala.beneficio1_articulo_bonificado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="mb-2 escala-beneficio-cantidad" data-beneficio-idx="1">
-                            <label for="{{ form_escala.beneficio1_cantidad_bonificada.id_for_label }}" class="form-label">{{ form_escala.beneficio1_cantidad_bonificada.label }}</label>
-                            {{ form_escala.beneficio1_cantidad_bonificada }}
-                            {% for error in form_escala.beneficio1_cantidad_bonificada.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="mb-2 escala-beneficio-porcentaje" data-beneficio-idx="1">
-                            <label for="{{ form_escala.beneficio1_porcentaje_descuento.id_for_label }}" class="form-label">{{ form_escala.beneficio1_porcentaje_descuento.label }}</label>
-                            {{ form_escala.beneficio1_porcentaje_descuento }}
-                            {% for error in form_escala.beneficio1_porcentaje_descuento.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-
-                    <h6 class="mt-4 text-secondary fw-bold">Beneficio 2 de esta Escala (Opcional):</h6>
-                    <div class="ps-3 border-start border-secondary">
-                        {{ form_escala.beneficio2_articulo_bonificado }} {# Hidden Input #}
-                        <div class="mb-2">
-                            <label for="{{ form_escala.beneficio2_tipo.id_for_label }}" class="form-label">{{ form_escala.beneficio2_tipo.label }}</label>
-                            {{ form_escala.beneficio2_tipo }}
-                            {% for error in form_escala.beneficio2_tipo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="mb-2 escala-beneficio-articulo form-item-container" data-beneficio-idx="2">
-                            <label for="{{ form_escala.beneficio2_articulo_bonificado_search.id_for_label }}" class="form-label">{{ form_escala.beneficio2_articulo_bonificado_search.label }}</label>
-                            {{ form_escala.beneficio2_articulo_bonificado_search }}
-                            <div class="autocomplete-suggestions-container"></div>
-                            {% for error in form_escala.beneficio2_articulo_bonificado_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                            {% for error in form_escala.beneficio2_articulo_bonificado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="mb-2 escala-beneficio-cantidad" data-beneficio-idx="2">
-                            <label for="{{ form_escala.beneficio2_cantidad_bonificada.id_for_label }}" class="form-label">{{ form_escala.beneficio2_cantidad_bonificada.label }}</label>
-                            {{ form_escala.beneficio2_cantidad_bonificada }}
-                            {% for error in form_escala.beneficio2_cantidad_bonificada.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="mb-2 escala-beneficio-porcentaje" data-beneficio-idx="2">
-                            <label for="{{ form_escala.beneficio2_porcentaje_descuento.id_for_label }}" class="form-label">{{ form_escala.beneficio2_porcentaje_descuento.label }}</label>
-                            {{ form_escala.beneficio2_porcentaje_descuento }}
-                            {% for error in form_escala.beneficio2_porcentaje_descuento.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                        </div>
-                    </div>
-                    {# --- FIN BENEFICIOS "APLANADOS" --- #}
-
                     {% if form_escala.instance.pk and form_escala.DELETE %}
                     <div class="form-check mt-2">
                         {{ form_escala.DELETE }}
-                        <label class="form-check-label" for="{{ form_escala.DELETE.id_for_label }}">Eliminar esta escala (y sus beneficios)</label>
+                        <label class="form-check-label" for="{{ form_escala.DELETE.id_for_label }}">Eliminar esta escala</label>
                     </div>
                     {% endif %}
                 </div>
@@ -247,7 +81,6 @@
         <button type="button" id="add-escala-form" class="btn btn-outline-secondary btn-sm mb-3">Añadir Escala</button>
         <hr>
 
-        {# ---------- SECCIÓN BENEFICIOS DIRECTOS (para promo no escalonada) ---------- #}
         <h4>Beneficios Directos (SOLO si la promoción NO es escalonada)</h4>
         {{ formset_beneficios_directos.management_form }}
         {% if formset_beneficios_directos.non_form_errors %}<div class="alert alert-danger p-2">{{ formset_beneficios_directos.non_form_errors|join:", " }}</div>{% endif %}
@@ -258,28 +91,10 @@
                     {% if form_benef.non_field_errors %}<div class="alert alert-danger p-2">{{ form_benef.non_field_errors|join:", " }}</div>{% endif %}
                     {{ form_benef.articulo_bonificado }}
                     {% if form_benef.instance.pk %}{{ form_benef.id }}{% endif %}
-                    <div class="mb-2">
-                        <label for="{{ form_benef.tipo.id_for_label }}" class="form-label">{{ form_benef.tipo.label }}</label>
-                         {{ form_benef.tipo }} 
-                         {% for error in form_benef.tipo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="mb-2 campo-articulo-bonificado form-item-container">
-                        <label for="{{ form_benef.articulo_bonificado_search.id_for_label }}" class="form-label">{{ form_benef.articulo_bonificado_search.label }}</label>
-                        {{ form_benef.articulo_bonificado_search }} 
-                        <div class="autocomplete-suggestions-container"></div>
-                        {% for error in form_benef.articulo_bonificado_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %} 
-                        {% for error in form_benef.articulo_bonificado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="mb-2 campo-cantidad-bonificada">
-                        <label for="{{ form_benef.cantidad_bonificada.id_for_label }}" class="form-label">{{ form_benef.cantidad_bonificada.label }}</label>
-                        {{ form_benef.cantidad_bonificada }} 
-                        {% for error in form_benef.cantidad_bonificada.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="mb-2 campo-porcentaje-descuento">
-                        <label for="{{ form_benef.porcentaje_descuento.id_for_label }}" class="form-label">{{ form_benef.porcentaje_descuento.label }}</label>
-                        {{ form_benef.porcentaje_descuento }}
-                        {% for error in form_benef.porcentaje_descuento.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                    </div>
+                    <div class="mb-2"><label for="{{ form_benef.tipo.id_for_label }}" class="form-label">{{ form_benef.tipo.label }}</label> {{ form_benef.tipo }} {% for error in form_benef.tipo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+                    <div class="mb-2 campo-articulo-bonificado form-item-container"><label for="{{ form_benef.articulo_bonificado_search.id_for_label }}" class="form-label">{{ form_benef.articulo_bonificado_search.label }}</label> {{ form_benef.articulo_bonificado_search }} <div class="autocomplete-suggestions-container"></div> {% for error in form_benef.articulo_bonificado_search.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %} {% for error in form_benef.articulo_bonificado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+                    <div class="mb-2 campo-cantidad-bonificada"><label for="{{ form_benef.cantidad_bonificada.id_for_label }}" class="form-label">{{ form_benef.cantidad_bonificada.label }}</label> {{ form_benef.cantidad_bonificada }} {% for error in form_benef.cantidad_bonificada.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+                    <div class="mb-2 campo-porcentaje-descuento"><label for="{{ form_benef.porcentaje_descuento.id_for_label }}" class="form-label">{{ form_benef.porcentaje_descuento.label }}</label> {{ form_benef.porcentaje_descuento }} {% for error in form_benef.porcentaje_descuento.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
                     {% if form_benef.instance.pk and form_benef.DELETE %}<div class="form-check mt-2">{{ form_benef.DELETE }} <label class="form-check-label" for="{{ form_benef.DELETE.id_for_label }}">Eliminar</label></div>{% endif %}
                 </div>
             {% endfor %}
@@ -294,85 +109,45 @@
     {# ---------- TEMPLATES VACÍOS PARA CLONAR ---------- #}
     <template id="empty-condicion-form-template">
         {% with form_cond=formset_condiciones.empty_form %}
-        <div class="condicion-form-item p-3 mb-3 border rounded" data-prefix="__prefix__">
-            <h5>Condición Nueva #<span class="form-counter">__prefix_num__</span></h5>
+        <div class="condicion-form-item p-3 mb-3 border rounded" data-prefix="_prefix_">
+            <h5>Condición Nueva #<span class="form-counter">_prefix_num_</span></h5>
             {{ form_cond.articulo }} {{ form_cond.linea }} {{ form_cond.grupo }}
-            <div class="mb-2 form-item-container">
-                <label for="id_{{ form_cond.prefix }}-__prefix__-articulo_search" class="form-label">{{ form_cond.articulo_search.label }}</label>
-                {{ form_cond.articulo_search }} 
-                <div class="autocomplete-suggestions-container"></div>
-            </div>
-            <div class="mb-2 form-item-container">
-                <label for="id_{{ form_cond.prefix }}-__prefix__-linea_search" class="form-label">{{ form_cond.linea_search.label }}</label>
-                {{ form_cond.linea_search }} 
-                <div class="autocomplete-suggestions-container"></div>
-            </div>
-            <div class="mb-2 form-item-container">
-                <label for="id_{{ form_cond.prefix }}-__prefix__-grupo_search" class="form-label">{{ form_cond.grupo_search.label }}</label>
-                {{ form_cond.grupo_search }} 
-                <div class="autocomplete-suggestions-container"></div>
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-2"><label for="id_{{ form_cond.prefix }}-__prefix__-cantidad_minima" class="form-label">{{ form_cond.cantidad_minima.label }}</label> {{ form_cond.cantidad_minima }}</div>
-                <div class="col-md-6 mb-2"><label for="id_{{ form_cond.prefix }}-__prefix__-monto_minimo" class="form-label">{{ form_cond.monto_minimo.label }}</label> {{ form_cond.monto_minimo }}</div>
-            </div>
-            <div class="form-check mb-2">{{ form_cond.obligatoria_en_conjunto }} <label class="form-check-label" for="id_{{ form_cond.prefix }}-__prefix__-obligatoria_en_conjunto">{{ form_cond.obligatoria_en_conjunto.label }}</label></div>
+            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-_prefix_-articulo_search" class="form-label">{{ form_cond.articulo_search.label }}</label> {{ form_cond.articulo_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-_prefix_-linea_search" class="form-label">{{ form_cond.linea_search.label }}</label> {{ form_cond.linea_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="mb-2 form-item-container"><label for="id_{{ form_cond.prefix }}-_prefix_-grupo_search" class="form-label">{{ form_cond.grupo_search.label }}</label> {{ form_cond.grupo_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="row"><div class="col-md-6 mb-2"><label for="id_{{ form_cond.prefix }}-_prefix-cantidad_minima" class="form-label">{{ form_cond.cantidad_minima.label }}</label> {{ form_cond.cantidad_minima }}</div><div class="col-md-6 mb-2"><label for="id{{ form_cond.prefix }}-_prefix_-monto_minimo" class="form-label">{{ form_cond.monto_minimo.label }}</label> {{ form_cond.monto_minimo }}</div></div>
+            <div class="form-check mb-2">{{ form_cond.obligatoria_en_conjunto }} <label class="form-check-label" for="id_{{ form_cond.prefix }}-_prefix_-obligatoria_en_conjunto">{{ form_cond.obligatoria_en_conjunto.label }}</label></div>
         </div>
         {% endwith %}
     </template>
 
     <template id="empty-escala-form-template">
         {% with form_escala=formset_escalas.empty_form %}
-        <div class="escala-form-item p-3 mb-3 border rounded" data-prefix="__prefix__">
-            <h5>Escala Nueva #<span class="form-counter">__prefix_num__</span></h5>
-            {# Campos propios de EscalaPromocion #}
-            <div class="mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-descripcion_escala" class="form-label">{{ form_escala.descripcion_escala.label }}</label>{{ form_escala.descripcion_escala }}</div>
-            <div class="row">
-                <div class="col-md-6 mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-desde_cantidad" class="form-label">{{ form_escala.desde_cantidad.label }}</label>{{ form_escala.desde_cantidad }}</div>
-                <div class="col-md-6 mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-hasta_cantidad" class="form-label">{{ form_escala.hasta_cantidad.label }}</label>{{ form_escala.hasta_cantidad }}</div>
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-desde_monto" class="form-label">{{ form_escala.desde_monto.label }}</label>{{ form_escala.desde_monto }}</div>
-                <div class="col-md-6 mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-hasta_monto" class="form-label">{{ form_escala.hasta_monto.label }}</label>{{ form_escala.hasta_monto }}</div>
-            </div>
-            <div class="form-check mb-2">{{ form_escala.proporcional }} <label class="form-check-label" for="id_{{ form_escala.prefix }}-__prefix__-proporcional">{{ form_escala.proporcional.label }}</label></div>
-            <div class="row">
-                <div class="col-md-6 mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-base_cantidad_proporcional_escala" class="form-label">{{ form_escala.base_cantidad_proporcional_escala.label }}</label>{{ form_escala.base_cantidad_proporcional_escala }}</div>
-                <div class="col-md-6 mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-base_monto_proporcional_escala" class="form-label">{{ form_escala.base_monto_proporcional_escala.label }}</label>{{ form_escala.base_monto_proporcional_escala }}</div>
-            </div>
-            
-            {# Campos para Beneficio 1 "Aplanado" #}
-            <h6 class="mt-4 text-primary fw-bold">Beneficio 1 de esta Escala:</h6>
-            <div class="ps-3 border-start border-primary mb-3">
-                {{ form_escala.beneficio1_articulo_bonificado }} {# Hidden #}
-                <div class="mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio1_tipo" class="form-label">{{ form_escala.beneficio1_tipo.label }}</label>{{ form_escala.beneficio1_tipo }}</div>
-                <div class="mb-2 escala-beneficio-articulo form-item-container" data-beneficio-idx="1"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio1_articulo_bonificado_search" class="form-label">{{ form_escala.beneficio1_articulo_bonificado_search.label }}</label>{{ form_escala.beneficio1_articulo_bonificado_search }}<div class="autocomplete-suggestions-container"></div></div>
-                <div class="mb-2 escala-beneficio-cantidad" data-beneficio-idx="1"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio1_cantidad_bonificada" class="form-label">{{ form_escala.beneficio1_cantidad_bonificada.label }}</label>{{ form_escala.beneficio1_cantidad_bonificada }}</div>
-                <div class="mb-2 escala-beneficio-porcentaje" data-beneficio-idx="1"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio1_porcentaje_descuento" class="form-label">{{ form_escala.beneficio1_porcentaje_descuento.label }}</label>{{ form_escala.beneficio1_porcentaje_descuento }}</div>
-            </div>
-
-            {# Campos para Beneficio 2 "Aplanado" #}
-            <h6 class="mt-4 text-secondary fw-bold">Beneficio 2 de esta Escala (Opcional):</h6>
-            <div class="ps-3 border-start border-secondary">
-                {{ form_escala.beneficio2_articulo_bonificado }} {# Hidden #}
-                <div class="mb-2"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio2_tipo" class="form-label">{{ form_escala.beneficio2_tipo.label }}</label>{{ form_escala.beneficio2_tipo }}</div>
-                <div class="mb-2 escala-beneficio-articulo form-item-container" data-beneficio-idx="2"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio2_articulo_bonificado_search" class="form-label">{{ form_escala.beneficio2_articulo_bonificado_search.label }}</label>{{ form_escala.beneficio2_articulo_bonificado_search }}<div class="autocomplete-suggestions-container"></div></div>
-                <div class="mb-2 escala-beneficio-cantidad" data-beneficio-idx="2"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio2_cantidad_bonificada" class="form-label">{{ form_escala.beneficio2_cantidad_bonificada.label }}</label>{{ form_escala.beneficio2_cantidad_bonificada }}</div>
-                <div class="mb-2 escala-beneficio-porcentaje" data-beneficio-idx="2"><label for="id_{{ form_escala.prefix }}-__prefix__-beneficio2_porcentaje_descuento" class="form-label">{{ form_escala.beneficio2_porcentaje_descuento.label }}</label>{{ form_escala.beneficio2_porcentaje_descuento }}</div>
-            </div>
+        <div class="escala-form-item p-3 mb-3 border rounded" data-prefix="_prefix_">
+            <h5>Escala Nueva #<span class="form-counter">_prefix_num_</span></h5>
+            {% for field in form_escala %}
+                <div class="mb-2">
+                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                </div>
+            {% endfor %}
+            <p class="mt-3 text-muted small">
+                Guarde la promoción para poder añadir beneficios a esta nueva escala a través del enlace "Gestionar Beneficios".
+            </p>
         </div>
         {% endwith %}
     </template>
 
     <template id="empty-beneficio-directo-form-template">
         {% with form_benef=formset_beneficios_directos.empty_form %}
-        <div class="beneficio-directo-form-item p-3 mb-3 border rounded" data-prefix="__prefix__">
-            <h5>Beneficio Directo Nuevo #<span class="form-counter">__prefix_num__</span></h5>
+        <div class="beneficio-directo-form-item p-3 mb-3 border rounded" data-prefix="_prefix_">
+            <h5>Beneficio Directo Nuevo #<span class="form-counter">_prefix_num_</span></h5>
             {{ form_benef.articulo_bonificado }}
-            <div class="mb-2"><label for="id_{{ form_benef.prefix }}-__prefix__-tipo" class="form-label">{{ form_benef.tipo.label }}</label> {{ form_benef.tipo }}</div>
-            <div class="mb-2 campo-articulo-bonificado form-item-container"><label for="id_{{ form_benef.prefix }}-__prefix__-articulo_bonificado_search" class="form-label">{{ form_benef.articulo_bonificado_search.label }}</label> {{ form_benef.articulo_bonificado_search }} <div class="autocomplete-suggestions-container"></div></div>
-            <div class="mb-2 campo-cantidad-bonificada"><label for="id_{{ form_benef.prefix }}-__prefix__-cantidad_bonificada" class="form-label">{{ form_benef.cantidad_bonificada.label }}</label> {{ form_benef.cantidad_bonificada }}</div>
-            <div class="mb-2 campo-porcentaje-descuento"><label for="id_{{ form_benef.prefix }}-__prefix__-porcentaje_descuento" class="form-label">{{ form_benef.porcentaje_descuento.label }}</label> {{ form_benef.porcentaje_descuento }}</div>
+            <div class="mb-2"><label for="id_{{ form_benef.prefix }}-_prefix_-tipo" class="form-label">{{ form_benef.tipo.label }}</label> {{ form_benef.tipo }}</div>
+            <div class="mb-2 campo-articulo-bonificado form-item-container"><label for="id_{{ form_benef.prefix }}-_prefix_-articulo_bonificado_search" class="form-label">{{ form_benef.articulo_bonificado_search.label }}</label> {{ form_benef.articulo_bonificado_search }} <div class="autocomplete-suggestions-container"></div></div>
+            <div class="mb-2 campo-cantidad-bonificada"><label for="id_{{ form_benef.prefix }}-_prefix_-cantidad_bonificada" class="form-label">{{ form_benef.cantidad_bonificada.label }}</label> {{ form_benef.cantidad_bonificada }}</div>
+            <div class="mb-2 campo-porcentaje-descuento"><label for="id_{{ form_benef.prefix }}-_prefix_-porcentaje_descuento" class="form-label">{{ form_benef.porcentaje_descuento.label }}</label> {{ form_benef.porcentaje_descuento }}</div>
         </div>
         {% endwith %}
     </template>
@@ -380,17 +155,16 @@
 </div>
 
 <script>
-// Función genérica de autocompletar (sin cambios, ya es robusta)
+// Función genérica de autocompletar
 function setupGenericAutocomplete(formItem, searchInputSelector, pkInputSelector, searchUrl) {
     const searchInput = formItem.querySelector(searchInputSelector);
     const pkInput = formItem.querySelector(pkInputSelector);
     const suggestionsContainer = searchInput ? searchInput.nextElementSibling : null; 
 
     if (!searchInput || !pkInput || !suggestionsContainer || !suggestionsContainer.classList.contains('autocomplete-suggestions-container')) {
-        // console.warn("Autocomplete: Elementos NO encontrados. SearchSel:", searchInputSelector, "PkSel:", pkInputSelector, "en Item:", formItem);
+        // console.warn("Autocomplete: Elementos no encontrados para search:", searchInputSelector, "pk:", pkInputSelector, "en item:", formItem);
         return;
     }
-    // console.log("Autocomplete: Configurando para SearchInput:", searchInput, "PkInput:", pkInput);
 
     let debounceTimer;
     searchInput.addEventListener('input', function(e) {
@@ -399,17 +173,18 @@ function setupGenericAutocomplete(formItem, searchInputSelector, pkInputSelector
         suggestionsContainer.innerHTML = '';
         if (pkInput.value) { pkInput.value = ''; } 
 
-        if (term.length < 1) {
+        if (term.length < 1) { // Búsqueda a partir de 1 caracter
             if (pkInput.getAttribute('data-last-selected-text') && pkInput.getAttribute('data-last-selected-text') !== term) {
                  pkInput.value = '';
             }
+            suggestionsContainer.innerHTML = ''; // Limpiar sugerencias si el término es muy corto
             return;
         }
         debounceTimer = setTimeout(() => {
-            let fullSearchUrl = `${searchUrl}?term=${encodeURIComponent(term)}`;
+            let fullSearchUrl = ${searchUrl}?term=${encodeURIComponent(term)};
             fetch(fullSearchUrl)
                 .then(response => {
-                    if (!response.ok) { throw new Error(`Network response was not ok: ${response.statusText}`); }
+                    if (!response.ok) { throw new Error(Network response was not ok: ${response.statusText}); }
                     return response.json();
                 })
                 .then(data => {
@@ -436,75 +211,45 @@ function setupGenericAutocomplete(formItem, searchInputSelector, pkInputSelector
                 })
                 .catch(error => {
                     console.error('Error fetching autocomplete data:', searchUrl, error);
-                    suggestionsContainer.innerHTML = `<div class="p-2 text-danger small">Error: ${error.message}</div>`;
+                    suggestionsContainer.innerHTML = <div class="p-2 text-danger small">Error: ${error.message}</div>;
                 });
         }, 350); 
     });
     document.addEventListener('click', function(event) { 
-        if (suggestionsContainer && !suggestionsContainer.contains(event.target) && !searchInput.contains(event.target)) {
+        if (suggestionsContainer && suggestionsContainer.parentElement && 
+            !suggestionsContainer.parentElement.contains(event.target) && 
+            !searchInput.contains(event.target)) {
             suggestionsContainer.innerHTML = '';
         }
     });
 }
 
+// toggleBeneficioCamposDirectos para Beneficios Directos
+function toggleBeneficioCamposDirectos(formItem, tipoBeneficio) {
+    const articuloDiv = formItem.querySelector('.campo-articulo-bonificado');
+    const cantidadDiv = formItem.querySelector('.campo-cantidad-bonificada');
+    const porcentajeDiv = formItem.querySelector('.campo-porcentaje-descuento');
 
-function toggleBeneficioCampos(formItem, tipoBeneficio, beneficioIndex) {
-    console.groupCollapsed(`toggleBeneficioCampos - Index: '${beneficioIndex || 'Directo'}', Tipo: '${tipoBeneficio}'`);
-    console.log("FormItem (contexto para querySelector):", formItem);
-
-    let articuloDivSelector, cantidadDivSelector, porcentajeDivSelector;
-
-    if (beneficioIndex) { // Para beneficios dentro de una escala (beneficioIndex es '1' o '2')
-        articuloDivSelector = `.escala-beneficio-articulo[data-beneficio-idx="${beneficioIndex}"]`;
-        cantidadDivSelector = `.escala-beneficio-cantidad[data-beneficio-idx="${beneficioIndex}"]`;
-        porcentajeDivSelector = `.escala-beneficio-porcentaje[data-beneficio-idx="${beneficioIndex}"]`;
-    } else { // Para beneficios directos de la promoción (beneficioIndex es '')
-        articuloDivSelector = '.campo-articulo-bonificado';
-        cantidadDivSelector = '.campo-cantidad-bonificada';
-        porcentajeDivSelector = '.campo-porcentaje-descuento';
-    }
-
-    console.log("  Selector Articulo:", articuloDivSelector);
-    console.log("  Selector Cantidad:", cantidadDivSelector);
-    console.log("  Selector Porcentaje:", porcentajeDivSelector);
-
-    const articuloDiv = formItem.querySelector(articuloDivSelector);
-    const cantidadDiv = formItem.querySelector(cantidadDivSelector);
-    const porcentajeDiv = formItem.querySelector(porcentajeDivSelector);
-
-    console.log("  Divs encontrados:", { articuloDiv, cantidadDiv, porcentajeDiv });
-
-    if (articuloDiv) articuloDiv.style.display = 'none'; else console.warn("  articuloDiv NO encontrado con selector:", articuloDivSelector);
-    if (cantidadDiv) cantidadDiv.style.display = 'none'; else console.warn("  cantidadDiv NO encontrado con selector:", cantidadDivSelector);
-    if (porcentajeDiv) porcentajeDiv.style.display = 'none'; else console.warn("  porcentajeDiv NO encontrado con selector:", porcentajeDivSelector);
+    if (articuloDiv) articuloDiv.style.display = 'none';
+    if (cantidadDiv) cantidadDiv.style.display = 'none';
+    if (porcentajeDiv) porcentajeDiv.style.display = 'none';
 
     if (tipoBeneficio === 'bonificacion') {
-        console.log("  Mostrando campos de bonificación.");
         if (articuloDiv) articuloDiv.style.display = '';
         if (cantidadDiv) cantidadDiv.style.display = '';
     } else if (tipoBeneficio === 'descuento') {
-        console.log("  Mostrando campos de descuento.");
         if (porcentajeDiv) porcentajeDiv.style.display = '';
-    } else {
-        console.log("  Tipo de beneficio no reconocido o vacío, ocultando todos.");
     }
-    console.groupEnd();
 }
 
-
 function initializeFormItemInteractions(formItemElement) {
-    console.groupCollapsed("Initializing interactions for item:", formItemElement.classList[0]);
-    console.log("Element:", formItemElement);
-
     if (formItemElement.classList.contains('condicion-form-item')) {
-        console.log("  Es Condicion Item");
         setupGenericAutocomplete(formItemElement, '.articulo-search-input', '.articulo-pk-input', "{% url 'buscar_articulos_json' %}");
         setupGenericAutocomplete(formItemElement, '.linea-search-input', '.linea-pk-input', "{% url 'buscar_lineas_json' %}");
         setupGenericAutocomplete(formItemElement, '.grupo-search-input', '.grupo-pk-input', "{% url 'buscar_grupos_json' %}");
     }
     
     if (formItemElement.classList.contains('beneficio-directo-form-item')) {
-        console.log("  Es Beneficio Directo Item");
         setupGenericAutocomplete(formItemElement, 
             '.articulo-bonificado-search-input', 
             '.articulo-bonificado-pk-input', 
@@ -512,55 +257,28 @@ function initializeFormItemInteractions(formItemElement) {
         );
         const tipoBeneficioDirectoSelect = formItemElement.querySelector('select.tipo-beneficio');
         if (tipoBeneficioDirectoSelect) {
-            console.log("    TipoBeneficioDirectoSelect encontrado:", tipoBeneficioDirectoSelect);
-            toggleBeneficioCampos(formItemElement, tipoBeneficioDirectoSelect.value, ''); // Sin índice
+            toggleBeneficioCamposDirectos(formItemElement, tipoBeneficioDirectoSelect.value);
             tipoBeneficioDirectoSelect.addEventListener('change', function(event) {
-                toggleBeneficioCampos(formItemElement, event.target.value, '');
+                toggleBeneficioCamposDirectos(formItemElement, event.target.value);
             });
-        } else {
-            console.warn("    TipoBeneficioDirectoSelect NO encontrado en:", formItemElement);
         }
     }
 
+    // Para EscalaPromocionModelForm simplificado, no hay interacciones de beneficio aquí
     if (formItemElement.classList.contains('escala-form-item')) {
-        console.log("  Es Escala Item. Configurando beneficios internos...");
-        ['1', '2'].forEach(index => {
-            console.log(`    Configurando para Beneficio de Escala con índice: ${index}`);
-            const searchInputSelector = `input.articulo-bonificado-search-input[data-beneficio-idx="${index}"]`;
-            const pkInputSelector = `input.articulo-bonificado-pk-input[data-beneficio-idx="${index}"]`;
-            
-            console.log(`      SearchInputSelector: ${searchInputSelector}`);
-            console.log(`      PkInputSelector: ${pkInputSelector}`);
-            
-            // El formItem para setupGenericAutocomplete es el propio formItemElement (la escala)
-            // ya que los inputs de búsqueda están dentro de él.
-            setupGenericAutocomplete(formItemElement, searchInputSelector, pkInputSelector, "{% url 'buscar_articulos_json' %}");
-
-            const tipoBeneficioEscalaSelect = formItemElement.querySelector(`select.beneficio-tipo-escala[data-beneficio-idx="${index}"]`);
-            console.log(`      TipoBeneficioEscalaSelect (idx ${index}):`, tipoBeneficioEscalaSelect);
-            if (tipoBeneficioEscalaSelect) {
-                toggleBeneficioCampos(formItemElement, tipoBeneficioEscalaSelect.value, index);
-                tipoBeneficioEscalaSelect.addEventListener('change', function(event) {
-                    toggleBeneficioCampos(formItemElement, event.target.value, index);
-                });
-            } else {
-                console.warn(`      TipoBeneficioEscalaSelect con data-beneficio-idx="${index}" NO encontrado en:`, formItemElement);
-            }
-        });
+        // No se inicializa autocompletar ni toggle para beneficios aquí
     }
-    console.groupEnd();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Función para clonar formularios (sin cambios significativos, ya era robusta)
     function setupFormsetCloning(containerId, addButtonId, templateId, formsetPrefix, initCallback) {
         const container = document.getElementById(containerId);
         const addButton = document.getElementById(addButtonId);
         const templateElement = document.getElementById(templateId);
-        const totalFormsInput = document.querySelector(`#id_${formsetPrefix}-TOTAL_FORMS`);
+        const totalFormsInput = document.querySelector(#id_${formsetPrefix}-TOTAL_FORMS);
         
         if (!container || !addButton || !templateElement || !totalFormsInput) {
-            console.warn("Faltan elementos para setupFormsetCloning:", {containerId, addButtonId, templateId, formsetPrefix});
+            // console.warn("Faltan elementos para setupFormsetCloning:", {containerId, addButtonId, templateId, formsetPrefix});
             return;
         }
         
@@ -572,23 +290,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const newFormElement = newFormFragment.firstElementChild;
 
             if (newFormElement) {
-                const prefixRegex = new RegExp('__prefix__', 'g');
-                const counterRegex = new RegExp('__prefix_num__', 'g'); 
+                const prefixRegex = new RegExp('_prefix_', 'g');
+                const counterRegex = new RegExp('_prefix_num_', 'g'); 
 
-                newFormElement.querySelectorAll('[name*="__prefix__"], [id*="__prefix__"], [for*="__prefix__"]').forEach(el => {
+                newFormElement.querySelectorAll('[name*="_prefix"], [id*="prefix"], [for*="prefix_"]').forEach(el => {
                     ['id', 'name', 'for'].forEach(attr => {
                         const oldValue = el.getAttribute(attr);
-                        if (oldValue && oldValue.includes('__prefix__')) {
+                        if (oldValue && oldValue.includes('_prefix_')) {
                             el.setAttribute(attr, oldValue.replace(prefixRegex, formNum));
                         }
                     });
                 });
                 
-                newFormElement.setAttribute('data-prefix', `${formsetPrefix}-${formNum}`);
+                newFormElement.setAttribute('data-prefix', ${formsetPrefix}-${formNum});
                 
                 const counterSpan = newFormElement.querySelector('.form-counter');
                 if(counterSpan) {
-                     counterSpan.textContent = counterSpan.textContent.replace(counterRegex, formNum + 1);
+                     counterSpan.textContent = (counterSpan.textContent || "").replace(counterRegex, formNum + 1);
                 }
 
                 newFormElement.querySelectorAll('input[type="text"], input[type="number"], input[type="hidden"], select').forEach(input => {
@@ -610,16 +328,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Inicializar interacciones para formularios existentes al cargar la página
-    console.log("Inicializando interacciones para formularios existentes...");
     document.querySelectorAll('.condicion-form-item, .escala-form-item, .beneficio-directo-form-item').forEach(item => {
         initializeFormItemInteractions(item);
     });
 
-    // Configurar clonado de formularios
-    console.log("Configurando clonado de formularios...");
     setupFormsetCloning('condiciones-forms-container', 'add-condicion-form', 'empty-condicion-form-template', '{{ formset_condiciones.prefix }}', initializeFormItemInteractions);
-    setupFormsetCloning('escalas-forms-container', 'add-escala-form', 'empty-escala-form-template', '{{ formset_escalas.prefix }}', initializeFormItemInteractions); 
+    setupFormsetCloning('escalas-forms-container', 'add-escala-form', 'empty-escala-form-template', '{{ formset_escalas.prefix }}', initializeFormItemInteractions); // initCallback es initializeFormItemInteractions, pero no hará nada para autocompletar de beneficio aquí.
     setupFormsetCloning('beneficios-directos-forms-container', 'add-beneficio-directo-form', 'empty-beneficio-directo-form-template', '{{ formset_beneficios_directos.prefix }}', initializeFormItemInteractions);
 });
 </script>

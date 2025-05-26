@@ -3,29 +3,13 @@
 
 {% block title %}Crear Pedido{% endblock %}
 
-{% block head_extra %} {# Un nuevo bloque para CSS específico de la página si es necesario #}
+{% block head_extra %}
 <style>
-    .autocomplete-suggestions {
-        border: 1px solid #ddd;
-        max-height: 150px;
-        overflow-y: auto;
-        position: absolute;
-        background-color: white;
-        z-index: 999;
-    }
-    .autocomplete-suggestion {
-        padding: 8px;
-        cursor: pointer;
-    }
-    .autocomplete-suggestion:hover {
-        background-color: #f0f0f0;
-    }
-    .autocomplete-active {
-        background-color: #e0e0e0;
-    }
+    .autocomplete-suggestions { border: 1px solid #ddd; max-height: 150px; overflow-y: auto; position: absolute; background-color: white; z-index: 999; }
+    .autocomplete-suggestion { padding: 8px; cursor: pointer; }
+    .autocomplete-suggestion:hover { background-color: #f0f0f0; }
 </style>
 {% endblock %}
-
 
 {% block content %}
 <div class="container mt-4">
@@ -70,11 +54,15 @@
         <div id="articulos-container" class="mb-3">
             {# El primer item se renderiza aquí, los demás se clonan con JS #}
             <div class="articulo-item row gx-2 gy-2 mb-2 align-items-center p-2 border rounded">
-                <div class="col-md-7">
+                <div class="col-md-5"> {# Ajustado tamaño de columna #}
                     <label for="articulo_search_0" class="form-label">Buscar Artículo:</label>
                     <input type="text" id="articulo_search_0" class="form-control articulo-search-input" placeholder="Escriba para buscar artículo...">
                     <input type="hidden" name="articulo_pk[]" class="articulo-pk-input" required>
-                    <div class="autocomplete-suggestions-container" style="position: relative;"></div> {# Contenedor para las sugerencias #}
+                    <div class="autocomplete-suggestions-container" style="position: relative;"></div>
+                </div>
+                <div class="col-md-2"> {# NUEVO CAMPO PRECIO #}
+                    <label for="precio_unitario_0" class="form-label">Precio Unit.:</label>
+                    <input type="number" name="precio_unitario[]" id="precio_unitario_0" min="0" step="0.01" required class="form-control precio-unitario-input" placeholder="Precio"/>
                 </div>
                 <div class="col-md-2">
                     <label for="cantidad_0" class="form-label">Cantidad:</label>
@@ -84,7 +72,7 @@
                     <label for="subtotal_display_0" class="form-label">Subtotal:</label>
                     <input type="text" id="subtotal_display_0" name="subtotal_linea_display[]" readonly class="form-control subtotal-linea-display" placeholder="Subtotal"/>
                 </div>
-                <div class="col-md-1 align-self-end"> {# Para alinear el botón abajo #}
+                <div class="col-md-1 align-self-end">
                     <button type="button" onclick="eliminarArticulo(this)" class="btn btn-sm btn-danger w-100 mt-3">X</button>
                 </div>
             </div>
@@ -100,11 +88,15 @@
 
     <template id="articulo-item-template">
         <div class="articulo-item row gx-2 gy-2 mb-2 align-items-center p-2 border rounded">
-            <div class="col-md-7">
+            <div class="col-md-5">
                 <label for="articulo_search___prefix__" class="form-label">Buscar Artículo:</label>
                 <input type="text" id="articulo_search___prefix__" class="form-control articulo-search-input" placeholder="Escriba para buscar artículo...">
                 <input type="hidden" name="articulo_pk[]" class="articulo-pk-input" required>
                 <div class="autocomplete-suggestions-container" style="position: relative;"></div>
+            </div>
+            <div class="col-md-2"> {# NUEVO CAMPO PRECIO EN TEMPLATE #}
+                <label for="precio_unitario___prefix__" class="form-label">Precio Unit.:</label>
+                <input type="number" name="precio_unitario[]" id="precio_unitario___prefix__" min="0" step="0.01" required class="form-control precio-unitario-input" placeholder="Precio"/>
             </div>
             <div class="col-md-2">
                 <label for="cantidad___prefix__" class="form-label">Cantidad:</label>
@@ -123,46 +115,59 @@
 </div> {# Fin container #}
 
 <script>
-let articuloItemCounter = 0; // Para generar IDs únicos para los inputs de búsqueda
+let articuloItemCounter = 0; 
 
 function calcularSubtotalLinea(itemRow) {
-    // Como no hay precios, el subtotal siempre será 0.00
-    // El data-precio ya no se usa si no hay precios.
+    const inputPrecio = itemRow.querySelector('.precio-unitario-input'); // Obtener el input de precio
+    const inputCantidad = itemRow.querySelector('.cantidad-articulo');
     const displaySubtotal = itemRow.querySelector('.subtotal-linea-display');
+
+    const precioUnitario = parseFloat(inputPrecio.value) || 0; // Usar el valor del input de precio
+    const cantidad = parseInt(inputCantidad.value) || 0;
+
     if (displaySubtotal) {
-        displaySubtotal.value = (0).toFixed(2);
+        displaySubtotal.value = (precioUnitario * cantidad).toFixed(2);
     }
 }
 
-function setupAutocomplete(searchInput, pkInput, suggestionsContainer) {
+function setupAutocomplete(searchInput, pkInput, suggestionsContainer, itemRow) { // itemRow añadido como parámetro
     let debounceTimer;
     searchInput.addEventListener('input', function(e) {
         clearTimeout(debounceTimer);
         const term = e.target.value;
-        suggestionsContainer.innerHTML = ''; // Limpiar sugerencias anteriores
-        pkInput.value = ''; // Limpiar el ID del artículo si el usuario está escribiendo de nuevo
+        suggestionsContainer.innerHTML = ''; 
+        pkInput.value = ''; 
+        const precioInput = itemRow.querySelector('.precio-unitario-input'); // Encontrar el input de precio de esta fila
+        if (precioInput) precioInput.value = ''; // Limpiar precio al buscar nuevo artículo
 
-        if (term.length < 2) { // No buscar con menos de 2 caracteres
-            return;
-        }
+        if (term.length < 1) { return; }
 
         debounceTimer = setTimeout(() => {
             fetch(`{% url 'buscar_articulos_json' %}?term=${encodeURIComponent(term)}`)
                 .then(response => response.json())
                 .then(data => {
-                    suggestionsContainer.innerHTML = ''; // Limpiar por si acaso
+                    suggestionsContainer.innerHTML = ''; 
                     if (data.length > 0) {
                         const ul = document.createElement('ul');
                         ul.className = 'list-unstyled autocomplete-suggestions';
                         data.forEach(item => {
                             const li = document.createElement('li');
-                            li.textContent = item.text; // item.text es "E:empresa_id | codigo - descripcion"
+                            li.textContent = item.text; 
                             li.className = 'autocomplete-suggestion';
+                            li.setAttribute('data-articulo-id', item.id); // Guardar ID
+                            li.setAttribute('data-precio-sugerido', item.precio_venta || '0.00'); // Guardar precio sugerido
+
                             li.addEventListener('click', function() {
-                                searchInput.value = item.text; // Poner el texto completo en el input
-                                pkInput.value = item.id;    // Guardar el ID del artículo en el hidden input
-                                suggestionsContainer.innerHTML = ''; // Limpiar sugerencias
-                                calcularSubtotalLinea(searchInput.closest('.articulo-item'));
+                                searchInput.value = item.text; 
+                                pkInput.value = item.id;    
+                                suggestionsContainer.innerHTML = ''; 
+                                
+                                // Autopoblar el precio si viene de la búsqueda
+                                const precioSugerido = this.getAttribute('data-precio-sugerido');
+                                if (precioInput) {
+                                    precioInput.value = parseFloat(precioSugerido).toFixed(2);
+                                }
+                                calcularSubtotalLinea(itemRow);
                             });
                             ul.appendChild(li);
                         });
@@ -175,10 +180,8 @@ function setupAutocomplete(searchInput, pkInput, suggestionsContainer) {
                     console.error('Error fetching articles:', error);
                     suggestionsContainer.innerHTML = '<div class="p-2 text-danger">Error al buscar.</div>';
                 });
-        }, 300); // Espera 300ms después de que el usuario deja de escribir
+        }, 300); 
     });
-
-    // Opcional: cerrar sugerencias si se hace clic fuera
     document.addEventListener('click', function(event) {
         if (!searchInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
             suggestionsContainer.innerHTML = '';
@@ -186,18 +189,29 @@ function setupAutocomplete(searchInput, pkInput, suggestionsContainer) {
     });
 }
 
+function initializeNewItemRow(itemRow) {
+    const searchInput = itemRow.querySelector('.articulo-search-input');
+    const pkInput = itemRow.querySelector('.articulo-pk-input');
+    const suggestionsContainer = itemRow.querySelector('.autocomplete-suggestions-container');
+    const precioInput = itemRow.querySelector('.precio-unitario-input');
+    const cantidadInput = itemRow.querySelector('.cantidad-articulo');
+
+    if (searchInput && pkInput && suggestionsContainer) {
+        setupAutocomplete(searchInput, pkInput, suggestionsContainer, itemRow);
+    }
+    if (precioInput) {
+        precioInput.addEventListener('input', function() { calcularSubtotalLinea(itemRow); });
+    }
+    if (cantidadInput) {
+        cantidadInput.addEventListener('input', function() { calcularSubtotalLinea(itemRow); });
+    }
+    calcularSubtotalLinea(itemRow); // Calcular subtotal inicial
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     const primerItemRow = document.querySelector('#articulos-container .articulo-item');
     if (primerItemRow) {
-        const searchInput = primerItemRow.querySelector('.articulo-search-input');
-        const pkInput = primerItemRow.querySelector('.articulo-pk-input');
-        const suggestionsContainer = primerItemRow.querySelector('.autocomplete-suggestions-container');
-        setupAutocomplete(searchInput, pkInput, suggestionsContainer);
-        
-        calcularSubtotalLinea(primerItemRow); // Subtotal será 0
-        // No necesitamos listeners en select, ya que no hay precios que cambien el subtotal
-        // primerItemRow.querySelector('.cantidad-articulo').addEventListener('input', function() { calcularSubtotalLinea(primerItemRow); });
+        initializeNewItemRow(primerItemRow);
     }
 });
 
@@ -205,33 +219,28 @@ function agregarArticulo() {
     articuloItemCounter++;
     const contenedor = document.getElementById("articulos-container");
     const template = document.getElementById("articulo-item-template");
+    
+    // Reemplazar __prefix__ en el HTML del template antes de crear el nodo
     let nuevoItemHtml = template.innerHTML.replace(/__prefix__/g, articuloItemCounter);
     
-    const divWrapper = document.createElement('div'); // Contenedor temporal para convertir string HTML a nodo
+    const divWrapper = document.createElement('div');
     divWrapper.innerHTML = nuevoItemHtml;
-    const nuevoItem = divWrapper.firstElementChild; // El div.articulo-item
+    const nuevoItem = divWrapper.firstElementChild; 
 
     if (nuevoItem) {
+        // Limpiar valores de los inputs del nuevo item
         const searchInput = nuevoItem.querySelector('.articulo-search-input');
         const pkInput = nuevoItem.querySelector('.articulo-pk-input');
-        const suggestionsContainer = nuevoItem.querySelector('.autocomplete-suggestions-container');
-        
-        // Limpiar valores del template clonado
-        searchInput.value = '';
-        pkInput.value = '';
+        const precioInput = nuevoItem.querySelector('.precio-unitario-input');
         const cantidadInput = nuevoItem.querySelector('.cantidad-articulo');
-        if (cantidadInput) cantidadInput.value = 1;
-        
-        setupAutocomplete(searchInput, pkInput, suggestionsContainer);
-        
-        // Añadir listener para cantidad (aunque el subtotal sea 0, podría ser útil si añades precios después)
-        // const cantidadNuevo = nuevoItem.querySelector('.cantidad-articulo');
-        // if (cantidadNuevo) {
-        //     cantidadNuevo.addEventListener('input', function() { calcularSubtotalLinea(nuevoItem); });
-        // }
+
+        if(searchInput) searchInput.value = '';
+        if(pkInput) pkInput.value = '';
+        if(precioInput) precioInput.value = ''; // O un valor por defecto como 0.00
+        if(cantidadInput) cantidadInput.value = 1;
         
         contenedor.appendChild(nuevoItem);
-        calcularSubtotalLinea(nuevoItem);
+        initializeNewItemRow(nuevoItem); // Inicializar JS para el nuevo item
     } else {
         console.error("No se pudo clonar el template del artículo correctamente.");
     }
@@ -247,13 +256,12 @@ function eliminarArticulo(btn) {
 }
 
 document.getElementById('pedidoForm').addEventListener('submit', function(event) {
-    // ... (tu validación existente, asegúrate que verifica articulo-pk-input) ...
     const cliente = document.getElementById('cliente').value;
     const canal = document.getElementById('canal_cliente').value;
     const sucursal = document.getElementById('sucursal').value;
-    // Ahora validamos los hidden inputs que tienen el ID del artículo
     const articulosPkInputs = document.querySelectorAll('input[name="articulo_pk[]"]');
     const cantidadesInputs = document.querySelectorAll('input[name="cantidad[]"]');
+    const preciosInputs = document.querySelectorAll('input[name="precio_unitario[]"]'); // Validar precios
 
     if (!cliente || !canal || !sucursal) {
         alert("Debe seleccionar un cliente, un canal y una sucursal.");
@@ -262,15 +270,16 @@ document.getElementById('pedidoForm').addEventListener('submit', function(event)
 
     let articuloValidoEncontrado = false;
     for (let i = 0; i < articulosPkInputs.length; i++) {
-        // Un item es válido si tiene un articulo_pk y una cantidad positiva
-        if (articulosPkInputs[i].value && cantidadesInputs[i].value && parseInt(cantidadesInputs[i].value) >= 1) {
+        if (articulosPkInputs[i].value && 
+            cantidadesInputs[i].value && parseFloat(cantidadesInputs[i].value) >= 1 &&
+            preciosInputs[i].value && parseFloat(preciosInputs[i].value) >= 0) { // Precio puede ser 0 pero debe estar
             articuloValidoEncontrado = true;
             break;
         }
     }
 
     if (!articuloValidoEncontrado) {
-        alert("Debe agregar al menos un artículo válido (buscado y seleccionado) con cantidad positiva.");
+        alert("Debe agregar al menos un artículo válido con cantidad y precio unitario especificados.");
         event.preventDefault(); return false;
     }
     return true;

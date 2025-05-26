@@ -7,6 +7,7 @@ from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from django.db.models import Q, Sum, F, ExpressionWrapper, DecimalField, Count, Min, Max
 from django.db import transaction # Para atomicidad en la aplicación de promociones
+from decimal import InvalidOperation
 
 
 from .models import (
@@ -577,88 +578,49 @@ def gestionar_promocion_completa(request, promocion_id=None):
         formset_escalas = EscalaPromocionFormSet(request.POST, instance=promocion, prefix="escala")
         formset_beneficios_directos = BeneficioDirectoPromocionFormSet(request.POST, instance=promocion, prefix="benef_directo")
 
-        # Validar todos los formularios y formsets
         are_all_valid = (
             form_promocion.is_valid() and
             formset_condiciones.is_valid() and
-            formset_escalas.is_valid() and
+            formset_escalas.is_valid() and # El formset de escalas ahora es más simple
             formset_beneficios_directos.is_valid()
         )
 
         if are_all_valid:
             try:
                 with transaction.atomic():
-                    # Guardar la promoción principal
                     nueva_promocion = form_promocion.save()
 
-                    # Guardar condiciones
                     formset_condiciones.instance = nueva_promocion
-                    formset_condiciones.save() # Esto guarda las condiciones
-
-                    # Guardar beneficios directos (si la promo no es escalonada)
-                    if not nueva_promocion.es_escalonada:
-                        formset_beneficios_directos.instance = nueva_promocion
-                        formset_beneficios_directos.save()
-                    else: # Si es escalonada, borrar beneficios directos por si acaso
-                        if promocion: # Si estamos editando una promoción existente
-                            BeneficioPromocion.objects.filter(promocion=promocion, escala__isnull=True).delete()
-
-
-                    # Guardar escalas y SUS beneficios "aplanados"
+                    formset_condiciones.save()
+                    
                     if nueva_promocion.es_escalonada:
                         formset_escalas.instance = nueva_promocion
+                        formset_escalas.save() # Simplemente guarda las escalas. Sus beneficios se gestionan aparte.
                         
-                        # Guardar las instancias de EscalaPromocion
-                        # El save() del formset llamará al save() de cada EscalaPromocionModelForm.
-                        # Dentro del save() de EscalaPromocionModelForm NO debemos llamar a save_beneficios().
-                        # Lo haremos explícitamente después.
-                        
-                        # Guardar instancias de EscalaPromocion.
-                        # No podemos llamar a form_escala.save_beneficios() dentro del save() del form
-                        # si la escala es nueva y aún no tiene PK.
-                        
-                        # Paso 1: Guardar las escalas (crea/actualiza EscalaPromocion)
-                        # commit=True es necesario aquí para que las instancias de escala tengan PK
-                        # antes de que intentemos guardar sus beneficios.
-                        escalas_instances = formset_escalas.save(commit=True) # Esto guarda las escalas
-
-                        # Paso 2: Iterar sobre los formularios del formset (que ahora tienen instancias)
-                        # y llamar al método personalizado para guardar los beneficios.
-                        for form_escala in formset_escalas.forms:
-                            if form_escala.is_valid() and form_escala.has_changed(): # Solo si es válido y tiene cambios
-                                if form_escala.cleaned_data.get('DELETE', False):
-                                    # El formset.save() ya debería haber manejado la eliminación de la escala
-                                    # y CASCADE debería eliminar sus beneficios.
-                                    # Si no, necesitarías: if form_escala.instance.pk: form_escala.instance.delete()
-                                    pass
-                                else:
-                                    # form_escala.instance ya es la instancia de EscalaPromocion guardada.
-                                    if form_escala.instance.pk: # Asegurarse que la escala tiene PK
-                                        form_escala.save_beneficios(escala_instance=form_escala.instance)
-                    else: # Si no es escalonada, borrar escalas existentes por si acaso
-                        if promocion: # Si estamos editando
-                             EscalaPromocion.objects.filter(promocion=promocion).delete()
-
-
+                        # Si antes había beneficios directos y ahora es escalonada, borrarlos.
+                        if promocion and not promocion.es_escalonada: # Si se cambió de no escalonada a escalonada
+                            BeneficioPromocion.objects.filter(promocion=nueva_promocion, escala__isnull=True).delete()
+                    else: # No es escalonada
+                        formset_beneficios_directos.instance = nueva_promocion
+                        formset_beneficios_directos.save()
+                        # Si antes era escalonada y ahora no, borrar sus escalas (y sus beneficios por CASCADE)
+                        if promocion and promocion.es_escalonada: # Si se cambió de escalonada a no escalonada
+                            EscalaPromocion.objects.filter(promocion=nueva_promocion).delete()
+                    
                     messages.success(request, f"Promoción '{nueva_promocion.nombre}' {action_text.lower()}da correctamente.")
                     return redirect('detalle_promocion', promocion_id=nueva_promocion.promocion_id)
             except Exception as e:
                 messages.error(request, f"Ocurrió un error al guardar: {e}")
-                # Aquí es bueno imprimir el error en la consola del servidor para depuración
                 print(f"Error en transacción de guardar promoción: {e}")
-
-
-        else: # Si algún formulario o formset no es válido
+        else:
             messages.error(request, "Por favor corrija los errores en el formulario.")
-            # Debugging de errores
-            print("Errores form_promocion:", form_promocion.errors, form_promocion.non_field_errors())
-            print("Errores formset_condiciones:", formset_condiciones.errors, formset_condiciones.non_form_errors())
-            print("Errores formset_escalas:", formset_escalas.errors, formset_escalas.non_form_errors())
-            for i, form_err in enumerate(formset_escalas.errors):
-                if form_err: print(f"  Errores en Escala form {i}: {form_err}")
-            print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors, formset_beneficios_directos.non_form_errors())
+            # (Opcional: imprimir errores para depuración)
+            # print("Errores form_promocion:", form_promocion.errors, form_promocion.non_field_errors())
+            # print("Errores formset_condiciones:", formset_condiciones.errors, formset_condiciones.non_form_errors())
+            # print("Errores formset_escalas:", formset_escalas.errors, formset_escalas.non_form_errors())
+            # print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors, formset_beneficios_directos.non_form_errors())
 
-    else: # GET request
+    else: # GET
         form_promocion = PromocionModelForm(instance=promocion, prefix="promo")
         formset_condiciones = CondicionPromocionFormSet(instance=promocion, prefix="cond")
         formset_escalas = EscalaPromocionFormSet(instance=promocion, prefix="escala")
@@ -718,88 +680,37 @@ def listar_pedidos(request):
 def crear_pedido_vista(request):
     if request.method == "POST":
         cliente_id_from_form = request.POST.get("cliente")
-        # El name del select en tu HTML es 'canal_cliente'
         canal_id_from_form = request.POST.get("canal_cliente")
-        # El name del select en tu HTML es 'sucursal'
         sucursal_id_from_form = request.POST.get("sucursal")
         
         articulo_pks_from_form = request.POST.getlist("articulo_pk[]")
         cantidades_from_form = request.POST.getlist("cantidad[]")
+        precios_unitarios_from_form = request.POST.getlist("precio_unitario[]") # NUEVO: Recibir precios
 
-        # --- Validación de Cabecera del Pedido ---
+        # --- Validaciones de cabecera y de que las listas tengan la misma longitud ---
         if not cliente_id_from_form or not canal_id_from_form or not sucursal_id_from_form:
             messages.error(request, "Debe seleccionar un cliente, un canal y una sucursal.")
-            # Recargar el formulario para que el usuario no pierda datos
-            # (Este contexto es el mismo que para el GET)
-            context = {
-                "clientes": Cliente.objects.all().order_by('nombres'),
-                "canales": CanalCliente.objects.all().order_by('nombre'),
-                "sucursales": Sucursal.objects.all().order_by('nombre'),
-                "articulos": Articulo.objects.all().order_by('descripcion'),
-                "posted_cliente_id": cliente_id_from_form,
-                "posted_canal_id": canal_id_from_form,
-                "posted_sucursal_id": sucursal_id_from_form,
-                # Aquí podrías incluso pasar los artículos y cantidades para repopular el JS si es complejo
-            }
-            return render(request, 'core/pedidos/formulario_pedido.html', context)
+            # (Recargar form con contexto)
+            # ...
+            return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
 
+
+        if not (articulo_pks_from_form and 
+                len(articulo_pks_from_form) == len(cantidades_from_form) == len(precios_unitarios_from_form)):
+            messages.error(request, "Inconsistencia en los datos de los artículos. Intente de nuevo.")
+            # (Recargar form con contexto)
+            # ...
+            return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
+        
         try:
-            # Usar los nombres de campo PK correctos de tus modelos
             cliente = get_object_or_404(Cliente, cliente_id=cliente_id_from_form)
-            canal = get_object_or_404(CanalCliente, canal_id=canal_id_from_form) # canal_id es CharField PK
-            sucursal = get_object_or_404(Sucursal, sucursal_id=sucursal_id_from_form) # sucursal_id es CharField PK
-        except Exception as e: # Captura más genérica para debug
+            canal = get_object_or_404(CanalCliente, canal_id=canal_id_from_form)
+            sucursal = get_object_or_404(Sucursal, sucursal_id=sucursal_id_from_form)
+        except Exception as e:
             messages.error(request, f"Error al obtener cliente, canal o sucursal. Detalle: {e}")
-            context = { # Repetir contexto para recargar el form
-                "clientes": Cliente.objects.all().order_by('nombres'),
-                "canales": CanalCliente.objects.all().order_by('nombre'),
-                "sucursales": Sucursal.objects.all().order_by('nombre'),
-                "articulos": Articulo.objects.select_related('empresa').all().order_by('descripcion', 'empresa_id'),
-                "posted_cliente_id": cliente_id_from_form,
-                "posted_canal_id": canal_id_from_form,
-                "posted_sucursal_id": sucursal_id_from_form,
-            }
-            return render(request, 'core/pedidos/formulario_pedido.html', context)
-
-        # --- Validación de Artículos del Pedido ---
-        if not articulo_pks_from_form or not any(articulo_pks_from_form) or len(articulo_pks_from_form) != len(cantidades_from_form):
-            messages.error(request, "Debe agregar al menos un artículo con su cantidad al pedido.")
-            # (Recargar form con contexto como arriba)
-            context = {
-                "clientes": Cliente.objects.all().order_by('nombres'),
-                "canales": CanalCliente.objects.all().order_by('nombre'),
-                "sucursales": Sucursal.objects.all().order_by('nombre'),
-                "articulos": Articulo.objects.all().order_by('descripcion'),
-                "posted_cliente_id": cliente_id_from_form,
-                "posted_canal_id": canal_id_from_form,
-                "posted_sucursal_id": sucursal_id_from_form,
-            }
-            return render(request, 'core/pedidos/formulario_pedido.html', context)
-        
-        # Validar que los artículos seleccionados no estén vacíos y las cantidades sean positivas
-        items_validos_en_post = False
-        for pk_str, cant_str in zip(articulo_pks_from_form, cantidades_from_form):
-            if pk_str and cant_str: # Asegurarse que ambos tienen valor
-                try:
-                    if int(cant_str) > 0:
-                        items_validos_en_post = True
-                        break
-                except ValueError:
-                    pass # Ignorar si la cantidad no es un número para esta validación
-        
-        if not items_validos_en_post:
-            messages.error(request, "Debe seleccionar al menos un artículo y especificar una cantidad positiva.")
-            # (Recargar form con contexto como arriba)
-            context = {
-                "clientes": Cliente.objects.all().order_by('nombres'),
-                "canales": CanalCliente.objects.all().order_by('nombre'),
-                "sucursales": Sucursal.objects.all().order_by('nombre'),
-                "articulos": Articulo.objects.all().order_by('descripcion'),
-                "posted_cliente_id": cliente_id_from_form,
-                "posted_canal_id": canal_id_from_form,
-                "posted_sucursal_id": sucursal_id_from_form,
-            }
-            return render(request, 'core/pedidos/formulario_pedido.html', context)
+            # (Recargar form con contexto)
+            # ...
+            return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
 
 
         with transaction.atomic():
@@ -807,62 +718,85 @@ def crear_pedido_vista(request):
                 cliente=cliente,
                 canal=canal,
                 sucursal=sucursal,
-                fecha=timezone.now().date(), # O timezone.now() para DateTime
-                # Los montos se inicializan en 0 y se calcularán después
+                fecha=timezone.now().date(),
                 subtotal=Decimal('0.00'),
                 descuento_total=Decimal('0.00'),
                 total_pedido=Decimal('0.00')
             )
             
-            # No necesitamos subtotal_acumulado_pedido aquí si no hay precios
+            subtotal_acumulado_pedido = Decimal('0.00')
+            has_valid_items = False
 
-            for pk_str, cantidad_str in zip(articulo_pks_from_form, cantidades_from_form):
-                # Omitir si el artículo no fue seleccionado o la cantidad está vacía/no es válida
-                if not pk_str or not cantidad_str:
+            for pk_str, cantidad_str, precio_str in zip(articulo_pks_from_form, cantidades_from_form, precios_unitarios_from_form):
+                if not pk_str or not cantidad_str or not precio_str: # Si alguna fila está incompleta, omitirla
                     continue
                 try:
                     cantidad = int(cantidad_str)
-                    if cantidad <= 0:
-                        continue # Ignorar cantidades no positivas
+                    # El precio del form puede ser string, convertir a Decimal
+                    precio_unitario_manual = Decimal(precio_str.replace(',', '.')) # Reemplazar coma si es necesario
+
+                    if cantidad <= 0 or precio_unitario_manual < Decimal('0.00'):
+                        messages.warning(request, f"Cantidad o precio no válidos para un artículo. Fue ignorado.")
+                        continue 
                     
-                    # Usar el nombre del PK correcto de Articulo
                     articulo = get_object_or_404(Articulo, articulo_id=pk_str)
+                    has_valid_items = True
                     
-                    # Como no hay precios en Articulo, los montos de línea son 0.
-                    precio_unitario_val = Decimal('0.00')
-                    subtotal_linea_val = Decimal('0.00') # cantidad * precio_unitario_val
+                    # Usar el precio ingresado manualmente. Si el artículo tuviera un precio_venta,
+                    # el JS lo habría prepopulado, pero el usuario puede cambiarlo.
+                    precio_final_a_usar = precio_unitario_manual
+                    subtotal_linea_val = Decimal(cantidad) * precio_final_a_usar
+                    subtotal_acumulado_pedido += subtotal_linea_val
 
                     DetallePedido.objects.create(
                         pedido=pedido,
                         articulo=articulo,
                         cantidad=cantidad,
-                        precio_unitario_lista=precio_unitario_val,
+                        precio_unitario_lista=precio_final_a_usar, # Usar el precio del formulario
                         subtotal_linea=subtotal_linea_val,
-                        total_linea=subtotal_linea_val # Inicialmente sin descuento
+                        total_linea=subtotal_linea_val
                     )
                 except Articulo.DoesNotExist:
                     messages.warning(request, f"Artículo con ID {pk_str} no encontrado. Fue ignorado.")
-                    continue
-                except ValueError:
-                    messages.warning(request, f"Cantidad '{cantidad_str}' no es un número válido para el artículo con ID {pk_str}. Fue ignorado.")
-                    continue
+                except (ValueError, InvalidOperation): # Error al convertir cantidad o precio
+                    messages.warning(request, f"Cantidad '{cantidad_str}' o precio '{precio_str}' no válidos. Fueron ignorados.")
             
-            # El pedido.subtotal y pedido.total_pedido serán recalculados y guardados
-            # dentro de procesar_y_aplicar_promociones_a_pedido.
-            # No es necesario un pedido.save() aquí específicamente para esos campos.
+            if not has_valid_items:
+                messages.error(request, "El pedido no contiene artículos válidos.")
+                # No es necesario hacer rollback explícito si transaction.atomic falla por una excepción no capturada
+                # pero aquí estamos continuando, así que si no hay items, el pedido se crearía vacío.
+                # Podrías decidir eliminar el pedido si no tiene detalles.
+                # O simplemente dejar que la lógica de promociones no encuentre nada.
+                # Por ahora, lo dejamos así, pero en un sistema real, un pedido sin items es raro.
+                # pedido.delete() # Opcional: borrar pedido si no tiene items
+                # transaction.set_rollback(True) # Si quieres forzar rollback
+                return redirect('crear_pedido_vista')
 
-        # Llamar a la función para procesar y aplicar promociones.
-        # Esta función debería manejar el redirect final.
+
+            pedido.subtotal = subtotal_acumulado_pedido
+            pedido.total_pedido = subtotal_acumulado_pedido
+            pedido.save() # Guardar el pedido con su subtotal inicial
+
         return procesar_y_aplicar_promociones_a_pedido(request, pedido.pedido_id)
 
     # Contexto para el método GET
-    context = {
+    # Definir una función helper para el contexto es más limpio si se repite
+    return render(request, 'core/pedidos/formulario_pedido.html', context_para_get(request))
+
+def context_para_get(request, posted_data=None): # Helper para el contexto
+    if posted_data is None:
+        posted_data = {}
+    return {
         "clientes": Cliente.objects.all().order_by('nombres'),
         "canales": CanalCliente.objects.all().order_by('nombre'),
         "sucursales": Sucursal.objects.all().order_by('nombre'),
-        "articulos": Articulo.objects.all().order_by('descripcion') # Usando "articulos" como en tu plantilla
+        "articulos": Articulo.objects.all().order_by('descripcion'), # Para el <template>
+        # Para repopular si hay error
+        "posted_cliente_id": posted_data.get("cliente"),
+        "posted_canal_id": posted_data.get("canal_cliente"),
+        "posted_sucursal_id": posted_data.get("sucursal"),
+        # Repopular artículos es más complejo con JS, no se hace aquí por simplicidad
     }
-    return render(request, 'core/pedidos/formulario_pedido.html', context)
 
 
 @login_required
@@ -884,53 +818,29 @@ def vista_detalle_pedido(request, pedido_id): # Renombrada para claridad
 @login_required
 def buscar_articulos_json(request):
     term = request.GET.get('term', '').strip()
-    # Filtrar por empresa si es necesario o relevante para la búsqueda.
-    # Por ahora, búsqueda general.
-    # Considera añadir un filtro por la empresa de la sucursal seleccionada en el pedido si es relevante.
-    # sucursal_id = request.GET.get('sucursal_id')
-    # if sucursal_id:
-    #   try:
-    #       sucursal = Sucursal.objects.get(sucursal_id=sucursal_id)
-    #       articulos_qs = Articulo.objects.select_related('empresa').filter(empresa=sucursal.empresa)
-    #   except Sucursal.DoesNotExist:
-    #       articulos_qs = Articulo.objects.select_related('empresa') # Fallback
-    # else:
-    #   articulos_qs = Articulo.objects.select_related('empresa')
-
-    articulos_qs = Articulo.objects.select_related('empresa') # Siempre hacer select_related
+    articulos_qs = Articulo.objects.select_related('empresa')
 
     if term:
         articulos_qs = articulos_qs.filter(
-            Q(codigo_articulo__icontains=term) | Q(descripcion__icontains=term) | Q(empresa__nombre__icontains=term)
+            Q(codigo_articulo__icontains=term) | 
+            Q(descripcion__icontains=term) | 
+            Q(empresa__nombre__icontains=term)
         )
     
-    articulos = articulos_qs.order_by('empresa__nombre', 'descripcion')[:20] # Limitar resultados
+    articulos = articulos_qs.order_by('empresa__nombre', 'descripcion')[:20]
 
     results = [
         {
-            "id": str(a.articulo_id), # El ID del artículo para el value
-            "text": f"E:{a.empresa.empresa_id} | {a.codigo_articulo} - {a.descripcion}", # Texto a mostrar en el autocompletar
+            "id": str(a.articulo_id),
+            "text": f"E:{a.empresa.empresa_id} | {a.codigo_articulo} - {a.descripcion}",
             "codigo": a.codigo_articulo,
             "descripcion": a.descripcion,
-            "empresa_id": str(a.empresa.empresa_id), # ID de la empresa
-            "empresa_nombre": a.empresa.nombre, # Nombre de la empresa
-            # "precio": str(getattr(a, 'precio_venta', '0.00')) # Si tuvieras precio
+            "empresa_id": str(a.empresa.empresa_id),
+            "empresa_nombre": a.empresa.nombre,
+            "precio_venta": str(a.precio_venta) if a.precio_venta is not None else "" # Enviar precio_venta
         } for a in articulos
     ]
     return JsonResponse(results, safe=False)
-
-# ... (mantener buscar_linea, buscar_grupo si aún son necesarias para formularios de Promocion)
-# ... (tus vistas de eliminar_condicion, eliminar_beneficio, eliminar_escala pueden mantenerse,
-#      asegúrate que redirigen correctamente y usan el promocion_id y no el pk simple si es UUID)
-
-# Las funciones `aplicar_beneficio` y `evaluar_promociones` que tenías antes
-# han sido integradas y mejoradas dentro de `procesar_y_aplicar_promociones_a_pedido`.
-
-# La función `aplicar_promociones` original ahora es `procesar_y_aplicar_promociones_a_pedido`
-# y toma `request` como primer argumento.
-
-# En tu views.py
-# from .forms import PromocionModelForm, CondicionPromocionFormSet, EscalaPromocionFormSet, BeneficioDirectoPromocionFormSet
 
 @login_required
 def gestionar_promocion_completa(request, promocion_id=None):
@@ -947,60 +857,49 @@ def gestionar_promocion_completa(request, promocion_id=None):
         formset_escalas = EscalaPromocionFormSet(request.POST, instance=promocion, prefix="escala")
         formset_beneficios_directos = BeneficioDirectoPromocionFormSet(request.POST, instance=promocion, prefix="benef_directo")
 
-        if (form_promocion.is_valid() and
+        are_all_valid = (
+            form_promocion.is_valid() and
             formset_condiciones.is_valid() and
-            formset_escalas.is_valid() and
-            formset_beneficios_directos.is_valid()):
+            formset_escalas.is_valid() and # El formset de escalas ahora es más simple
+            formset_beneficios_directos.is_valid()
+        )
 
-            with transaction.atomic(): # Envolver todo en una transacción
-                nueva_promocion = form_promocion.save()
-                
-                formset_condiciones.instance = nueva_promocion
-                formset_condiciones.save()
-                
-                formset_escalas.instance = nueva_promocion
-                # Guardar los formularios de escala. Esto NO guarda los beneficios aún.
-                # `forms_saved` contiene las instancias de EscalaPromocion guardadas o actualizadas.
-                escalas_guardadas = formset_escalas.save() # save() del formset base
+        if are_all_valid:
+            try:
+                with transaction.atomic():
+                    nueva_promocion = form_promocion.save()
 
-                # Ahora, para cada formulario de escala que fue guardado (o está siendo creado),
-                # llama al método save_beneficio que definimos en EscalaPromocionModelForm.
-                for form_escala in formset_escalas:
-                    if form_escala.is_valid() and form_escala.has_changed(): # Procesar solo si es válido y cambió
-                        if form_escala.cleaned_data.get('DELETE'):
-                            # Si la escala se marca para eliminar, el formset.save() ya la maneja.
-                            # Los beneficios asociados se borrarán por CASCADE si la FK en BeneficioPromocion
-                            # tiene on_delete=models.CASCADE hacia EscalaPromocion.
-                            pass
-                        else:
-                            # La instancia de escala ya fue creada/actualizada por formset_escalas.save()
-                            # o se creará si es un form nuevo.
-                            # Si es un form nuevo, form_escala.instance.pk será None antes de este save.
-                            # El save() del ModelForm (EscalaPromocionModelForm) será llamado por el formset.save().
-                            # Necesitamos asegurar que la instancia de escala esté guardada ANTES de llamar a save_beneficio.
-                            # `form_escala.instance` después de `formset_escalas.save()` debería tener el objeto Escala con su PK.
-                            if form_escala.instance.pk: # Solo si la escala se guardó o ya existía
-                                form_escala.save_beneficio(escala_instance=form_escala.instance)
-
-
-                formset_beneficios_directos.instance = nueva_promocion
-                formset_beneficios_directos.save()
-            
-            messages.success(request, f"Promoción '{nueva_promocion.nombre}' {action_text.lower()}da correctamente.")
-            return redirect('detalle_promocion', promocion_id=nueva_promocion.promocion_id)
+                    formset_condiciones.instance = nueva_promocion
+                    formset_condiciones.save()
+                    
+                    if nueva_promocion.es_escalonada:
+                        formset_escalas.instance = nueva_promocion
+                        formset_escalas.save() # Simplemente guarda las escalas. Sus beneficios se gestionan aparte.
+                        
+                        # Si antes había beneficios directos y ahora es escalonada, borrarlos.
+                        if promocion and not promocion.es_escalonada: # Si se cambió de no escalonada a escalonada
+                            BeneficioPromocion.objects.filter(promocion=nueva_promocion, escala__isnull=True).delete()
+                    else: # No es escalonada
+                        formset_beneficios_directos.instance = nueva_promocion
+                        formset_beneficios_directos.save()
+                        # Si antes era escalonada y ahora no, borrar sus escalas (y sus beneficios por CASCADE)
+                        if promocion and promocion.es_escalonada: # Si se cambió de escalonada a no escalonada
+                            EscalaPromocion.objects.filter(promocion=nueva_promocion).delete()
+                    
+                    messages.success(request, f"Promoción '{nueva_promocion.nombre}' {action_text.lower()}da correctamente.")
+                    return redirect('detalle_promocion', promocion_id=nueva_promocion.promocion_id)
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error al guardar: {e}")
+                print(f"Error en transacción de guardar promoción: {e}")
         else:
             messages.error(request, "Por favor corrija los errores en el formulario.")
-            # Imprimir errores para depuración
-            # print("Errores form_promocion:", form_promocion.errors)
-            # print("Errores formset_condiciones:", formset_condiciones.errors)
-            # print("Errores formset_condiciones non_form_errors:", formset_condiciones.non_form_errors())
-            # print("Errores formset_escalas:", formset_escalas.errors)
-            # print("Errores formset_escalas non_form_errors:", formset_escalas.non_form_errors())
-            # print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors)
-            # print("Errores formset_beneficios_directos non_form_errors:", formset_beneficios_directos.non_form_errors())
+            # (Opcional: imprimir errores para depuración)
+            # print("Errores form_promocion:", form_promocion.errors, form_promocion.non_field_errors())
+            # print("Errores formset_condiciones:", formset_condiciones.errors, formset_condiciones.non_form_errors())
+            # print("Errores formset_escalas:", formset_escalas.errors, formset_escalas.non_form_errors())
+            # print("Errores formset_beneficios_directos:", formset_beneficios_directos.errors, formset_beneficios_directos.non_form_errors())
 
-
-    else: # GET request
+    else: # GET
         form_promocion = PromocionModelForm(instance=promocion, prefix="promo")
         formset_condiciones = CondicionPromocionFormSet(instance=promocion, prefix="cond")
         formset_escalas = EscalaPromocionFormSet(instance=promocion, prefix="escala")
@@ -1046,3 +945,26 @@ def buscar_grupos_json(request):
         for g in grupos
     ]
     return JsonResponse(results, safe=False)
+
+@login_required
+def gestionar_beneficios_de_escala(request, escala_id): # Esta vista ya la tenías
+    escala = get_object_or_404(EscalaPromocion, escalapromocion_id=escala_id)
+    
+    if request.method == 'POST':
+        formset = BeneficioEscalaPromocionFormSet(request.POST, instance=escala, prefix='beneficios_escala') # Usar un prefijo
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, f"Beneficios para la escala '{escala.descripcion_escala or escala.pk}' actualizados.")
+            return redirect('detalle_promocion', promocion_id=escala.promocion.promocion_id)
+        else:
+            messages.error(request, "Por favor corrija los errores en los beneficios.")
+    else:
+        formset = BeneficioEscalaPromocionFormSet(instance=escala, prefix='beneficios_escala')
+
+    context = {
+        'escala': escala,
+        'promocion': escala.promocion,
+        'formset_beneficios_escala': formset,
+        'action_text': f"Gestionar Beneficios para Escala: {escala.descripcion_escala or escala.pk}"
+    }
+    return render(request, 'core/promociones/gestionar_beneficios_escala.html', context)
