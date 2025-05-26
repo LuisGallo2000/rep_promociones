@@ -1,0 +1,49 @@
+{% extends "core/base.html" %}
+
+{% block title %}Lista de Pedidos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Lista de Pedidos</h2>
+    <a href="{% url 'crear_pedido_vista' %}" class="btn btn-success mb-3">Crear Nuevo Pedido</a>
+
+    {% if pedidos %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID Pedido</th>
+                <th>Cliente</th>
+                <th>Fecha</th>
+                <th>Canal</th>
+                <th>Sucursal</th>
+                <th>Subtotal</th>
+                <th>Descuento</th>
+                <th>Total</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pedido in pedidos %}
+            <tr>
+                <td>{{ pedido.pedido_id|truncatechars:8 }}...</td>
+                <td>{{ pedido.cliente.nombres }}</td>
+                <td>{{ pedido.fecha|date:"d/m/Y H:i" }}</td>
+                <td>{{ pedido.canal.nombre }}</td>
+                <td>{{ pedido.sucursal.nombre }}</td>
+                <td>S/ {{ pedido.subtotal|floatformat:2 }}</td>
+                <td>S/ {{ pedido.descuento_total|floatformat:2 }}</td>
+                <td>S/ {{ pedido.total_pedido|floatformat:2 }}</td>
+                <td>
+                    <a href="{% url 'vista_detalle_pedido' pedido.pedido_id %}" class="btn btn-sm btn-info">Ver Detalle</a>
+                    {# Podrías añadir un botón para reprocesar promociones si es necesario #}
+                    {# <a href="{% url 'procesar_promociones_pedido' pedido.pedido_id %}" class="btn btn-sm btn-warning">Re-aplicar Promos</a> #}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay pedidos registrados.</p>
+    {% endif %}
+</div>
+{% endblock %}

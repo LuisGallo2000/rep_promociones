@@ -1,0 +1,47 @@
+{% extends "core/base.html" %}
+
+{% block title %}Lista de Promociones{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Lista de Promociones</h2>
+    <a href="{% url 'crear_promocion_completa' %}" class="btn btn-success mb-3">Crear Nueva Promoción</a>
+
+    {% if promociones %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Empresa</th>
+                <th>Canal Aplicable</th>
+                <th>Tipo Cliente</th>
+                <th>Fechas</th>
+                <th>Tipo</th>
+                <th>Activa</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for promo in promociones %}
+            <tr>
+                <td>{{ promo.nombre }}</td>
+                <td>{{ promo.empresa.nombre }}</td>
+                <td>{{ promo.canal_cliente_aplicable.nombre|default:"Todos" }}</td>
+                <td>{{ promo.get_tipo_cliente_display }}</td>
+                <td>{{ promo.fecha_inicio|date:"d/m/Y" }} - {{ promo.fecha_fin|date:"d/m/Y" }}</td>
+                <td>{{ promo.get_tipo_display }}</td>
+                <td>{{ promo.activa|yesno:"Sí,No" }}</td>
+                <td>
+                    <a href="{% url 'detalle_promocion' promo.promocion_id %}" class="btn btn-sm btn-info" title="Ver Detalle"><i class="fas fa-eye"></i></a>
+                    <a href="{% url 'editar_promocion_completa' promo.promocion_id %}" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                    <a href="{% url 'eliminar_promocion' promo.promocion_id %}" class="btn btn-sm btn-danger" title="Eliminar"><i class="fas fa-trash"></i></a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay promociones registradas.</p>
+    {% endif %}
+</div>
+{% endblock %}

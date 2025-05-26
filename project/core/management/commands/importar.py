@@ -1,3 +1,5 @@
+import random
+import string
 from django.core.management.base import BaseCommand
 import pandas as pd
 from core.models import (
@@ -9,7 +11,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         try:
-            empresa = Empresa.objects.get(id=1)
+            empresa = Empresa.objects.get(empresa_id='1')
         except Empresa.DoesNotExist:
             self.stdout.write(self.style.ERROR("Debes ejecutar primero 'inicializar_sistema'"))
             return
@@ -17,6 +19,7 @@ class Command(BaseCommand):
         # === GRUPOS ===
         df = pd.read_excel('data/grupos.xlsx')
         for _, row in df.iterrows():
+            empresa = Empresa.objects.get(empresa_id=row['empresa'])
             GrupoProveedor.objects.update_or_create(
                 grupo_id=row['grupo_id'],
                 defaults={
@@ -26,35 +29,54 @@ class Command(BaseCommand):
                     'estado': row['estado']
                 }
             )
-        self.stdout.write(self.style.SUCCESS("Grupos importados"))
-
+        self.stdout.write(self.style.SUCCESS("Grupos importados"))
+        
         # === LINEAS ===
         df = pd.read_excel('data/lineas.xlsx')
+
         for _, row in df.iterrows():
+            empresa = Empresa.objects.get(empresa_id=row['empresa'])
             grupo = GrupoProveedor.objects.get(grupo_id=row['grupo_id'])
+            codigo = str(row['codigo'])
+
+            # Verifica duplicidad en empresa + código
+            while Linea.objects.filter(empresa=empresa, codigo=codigo).exists():
+                letra_random = random.choice(string.ascii_uppercase)
+                codigo = f"{str(row['codigo'])}{letra_random}"
+
             Linea.objects.update_or_create(
                 linea_id=row['linea_id'],
                 defaults={
                     'empresa': empresa,
                     'grupo': grupo,
-                    'codigo': row['codigo'],
+                    'codigo': codigo,
                     'nombre': row['nombre'],
                     'estado': row['estado']
-                    
                 }
             )
-        self.stdout.write(self.style.SUCCESS("Líneas importadas"))
 
+        self.stdout.write(self.style.SUCCESS("Líneas importadas"))
+        
         # === ARTICULOS ===
         df = pd.read_excel('data/articulos.xlsx')
         for _, row in df.iterrows():
+            empresa = Empresa.objects.get(empresa_id=row['empresa_id'])
             grupo = GrupoProveedor.objects.get(grupo_id=row['grupo_id'])
             linea = Linea.objects.get(linea_id=row['linea_id'])
+
+            codigo_articulo = str(row['codigo_articulo'])
+
+            # Evitar duplicados empresa + codigo_articulo
+            while Articulo.objects.filter(empresa=empresa, codigo_articulo=codigo_articulo).exists():
+                letra_random = random.choice(string.ascii_uppercase)
+                codigo_articulo = f"{str(row['codigo_articulo'])}{letra_random}"
+                print(f"Código duplicado para empresa {empresa}, se cambió '{row['codigo_articulo']}' por '{codigo_articulo}'")
+
             Articulo.objects.update_or_create(
                 articulo_id=row['articulo_id'],
                 defaults={
                     'empresa': empresa,
-                    'codigo_articulo': row['codigo_articulo'],
+                    'codigo_articulo': codigo_articulo,
                     'codigo_barras': row.get('codigo_barras', ''),
                     'codigo_ean': row.get('codigo_ean', ''),
                     'descripcion': row['descripcion'],
@@ -74,8 +96,10 @@ class Command(BaseCommand):
                     'afecto_detraccion': row['afecto_detraccion']
                 }
             )
-        self.stdout.write(self.style.SUCCESS("Artículos importados"))
 
+        self.stdout.write(self.style.SUCCESS("Artículos importados"))
+        
+        # === VENDEDORES ===
         df = pd.read_excel('data/vendedores.xlsx')
         for _, row in df.iterrows():
             canal_id = row['canal_id']
@@ -100,7 +124,7 @@ class Command(BaseCommand):
                     'rol_id': row['rol_id']
                 }
             )
-        self.stdout.write(self.style.SUCCESS("Vendedores importados"))
-
+        self.stdout.write(self.style.SUCCESS("Vendedores importados"))
+       
 
         self.stdout.write(self.style.SUCCESS("✅ Todos los catálogos fueron importados correctamente."))

@@ -15,7 +15,7 @@
 <div class="d-flex flex-column flex-lg-row align-items-center justify-content-center"
      style="min-height: 100vh; position: relative; z-index: 1;">
   <div class="login-content p-4" style="max-width: 400px; width: 100%;">
-    <form method="post" action="{% url 'login' %}" novalidate>
+    <form method="post" action="{% url 'login_user' %}" novalidate>
       {% csrf_token %}
 
       <div class="text-center mb-4">

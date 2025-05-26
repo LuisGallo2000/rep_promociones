@@ -5,37 +5,32 @@ urlpatterns = [
     path('', views.home, name='home'),
 
     # Autenticación
-    path('login/', views.login_user, name='login'),
-    path('logout/', views.logout_user, name='logout'),
+    path('login/', views.login_user, name='login_user'),
+    path('logout/', views.logout_user, name='logout_user'),
 
-    # Promociones
+    # --- PROMOCIONES ---
     path('promociones/', views.listar_promociones, name='listar_promociones'),
-    path('promociones/crear/', views.crear_promocion, name='crear_promocion'),
-    path('promociones/<int:pk>/', views.detalle_promocion, name='detalle_promocion'),
-    path('promociones/<int:pk>/editar/', views.editar_promocion, name='editar_promocion'),
-    path('promociones/<int:pk>/eliminar/', views.eliminar_promocion, name='eliminar_promocion'),
+    path('promociones/gestionar/', views.gestionar_promocion_completa, name='crear_promocion_completa'),
+    path('promociones/gestionar/<uuid:promocion_id>/', views.gestionar_promocion_completa, name='editar_promocion_completa'),
+    path('promociones/detalle/<uuid:promocion_id>/', views.detalle_promocion, name='detalle_promocion'),
+    path('promociones/eliminar/<uuid:promocion_id>/', views.eliminar_promocion, name='eliminar_promocion'),
 
-    # Condiciones
-    path('promociones/<int:promocion_id>/condiciones/crear/', views.crear_condicion, name='crear_condicion'),
-    path('promociones/<int:pk>/condiciones/', views.gestionar_condiciones, name='gestionar_condiciones'),
-    path('condiciones/<int:pk>/eliminar/', views.eliminar_condicion, name='eliminar_condicion'),
+    # --- BÚSQUEDAS JSON (para autocompletar en formularios) ---
+    # Estas URLs devuelven JSON y no necesitan un prefijo 'api/' si no lo deseas.
+    # El nombre 'buscar_articulos_json' en views.py está bien.
+    path('buscar-articulos-json/', views.buscar_articulos_json, name='buscar_articulos_json'),
     
-    path('buscar-articulo/', views.buscar_articulo, name='buscar_articulo'),
-    path('buscar-linea/', views.buscar_linea, name='buscar_linea'),
-    path('buscar-grupo/', views.buscar_grupo, name='buscar_grupo'),
+    # Si tienes otras funciones de búsqueda JSON para líneas o grupos que usarás:
+    # path('buscar-lineas-json/', views.buscar_lineas_json, name='buscar_lineas_json'),
+    # path('buscar-grupos-json/', views.buscar_grupos_json, name='buscar_grupos_json'),
 
+    # --- PEDIDOS ---
+    path('pedidos/', views.listar_pedidos, name='listar_pedidos'),
+    path('pedidos/crear/', views.crear_pedido_vista, name='crear_pedido_vista'),
+    path('pedidos/detalle/<uuid:pedido_id>/', views.vista_detalle_pedido, name='vista_detalle_pedido'),
+    path('pedidos/aplicar-promociones/<uuid:pedido_id>/', views.procesar_y_aplicar_promociones_a_pedido, name='procesar_promociones_pedido'),
 
-    # Beneficios
-    path('promociones/<int:pk>/beneficios/', views.gestionar_beneficios, name='gestionar_beneficios'),
-    path('beneficios/<int:pk>/eliminar/', views.eliminar_beneficio, name='eliminar_beneficio'),
-
-    # Escalas
-    path('promociones/<int:pk>/escalas/', views.gestionar_escalas, name='gestionar_escalas'),
-    path('escalas/<int:pk>/eliminar/', views.eliminar_escala, name='eliminar_escala'),
-    path('promociones/<int:promocion_id>/condiciones/<int:condicion_id>/escalas/crear/', views.crear_escala, name='crear_escala'),
-    path('api/buscar_articulos/', views.buscar_articulos, name='buscar_articulos'),
-
-    # Pedidos
-    path('pedidos/crear/', views.crear_pedido, name='crear_pedido'),
-
+    path('buscar-articulos-json/', views.buscar_articulos_json, name='buscar_articulos_json'),
+    path('buscar-lineas-json/', views.buscar_lineas_json, name='buscar_lineas_json'),
+    path('buscar-grupos-json/', views.buscar_grupos_json, name='buscar_grupos_json'),
 ]

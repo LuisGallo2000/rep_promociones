@@ -1,0 +1,96 @@
+{% extends "core/base.html" %}
+
+{% block title %}Detalle del Pedido #{{ pedido.pedido_id|truncatechars:8 }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Detalle del Pedido #{{ pedido.pedido_id }}</h2>
+
+    <div class="card mb-3">
+        <div class="card-header">Información del Pedido</div>
+        <div class="card-body">
+            <p><strong>Cliente:</strong> {{ pedido.cliente.nombres }} ({{ pedido.cliente.nro_documento }})</p>
+            <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i:s" }}</p>
+            <p><strong>Canal:</strong> {{ pedido.canal.nombre }}</p>
+            <p><strong>Sucursal:</strong> {{ pedido.sucursal.nombre }}</p>
+        </div>
+    </div>
+
+    <h4>Artículos del Pedido</h4>
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Artículo (Código)</th>
+                <th>Descripción</th>
+                <th>Cantidad</th>
+                <th>Precio Unit.</th>
+                <th>Subtotal</th>
+                <th>Descuento</th>
+                <th>Total Línea</th>
+                <th>Origen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr {% if detalle.es_bonificacion %}class="table-success"{% endif %}>
+                <td>{{ detalle.articulo.codigo_articulo }}</td>
+                <td>{{ detalle.articulo.descripcion }}</td>
+                <td>{{ detalle.cantidad }}</td>
+                <td>S/ {{ detalle.precio_unitario_lista|floatformat:2 }}</td>
+                <td>S/ {{ detalle.subtotal_linea|floatformat:2 }}</td>
+                <td>S/ {{ detalle.descuento_linea|floatformat:2 }}</td>
+                <td>S/ {{ detalle.total_linea|floatformat:2 }}</td>
+                <td>
+                    {% if detalle.es_bonificacion %}
+                        Bonificación (Promo: {{ detalle.promocion_origen.nombre|default:"N/A" }})
+                    {% else %}
+                        Compra regular
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="row justify-content-end mt-3">
+        <div class="col-md-4">
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Subtotal Pedido:
+                    <span>S/ {{ pedido.subtotal|floatformat:2 }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center text-danger">
+                    Descuento Total Aplicado:
+                    <span>- S/ {{ pedido.descuento_total|floatformat:2 }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center active">
+                    <strong>Total Pedido:</strong>
+                    <strong>S/ {{ pedido.total_pedido|floatformat:2 }}</strong>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    {% if promociones_aplicadas_al_pedido %}
+        <h4 class="mt-4">Promociones Aplicadas</h4>
+        <ul class="list-group">
+            {% for promo_app in promociones_aplicadas_al_pedido %}
+                <li class="list-group-item">
+                    <strong>{{ promo_app.promocion.nombre }}</strong>
+                    {% if promo_app.escala_aplicada %}(Escala: {{ promo_app.escala_aplicada.descripcion_escala|default:"N/A" }}){% endif %}:
+                    <small>{{ promo_app.descripcion_beneficios_obtenidos }}</small>
+                    {% if promo_app.monto_descuento_generado > 0 %}
+                        <span class="badge bg-warning text-dark float-end">Descuento: S/ {{ promo_app.monto_descuento_generado|floatformat:2 }}</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{% url 'procesar_promociones_pedido' pedido.pedido_id %}" class="btn btn-info">Re-Aplicar Promociones</a>
+        <a href="{% url 'listar_pedidos' %}" class="btn btn-secondary">Volver a Lista de Pedidos</a>
+    </div>
+
+</div>
+{% endblock %}

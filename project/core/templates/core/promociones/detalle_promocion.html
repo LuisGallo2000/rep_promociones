@@ -1,0 +1,123 @@
+{% extends "core/base.html" %}
+
+{% block title %}Detalle: {{ promocion.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Detalle de la Promoción: {{ promocion.nombre }}</h2>
+    <a href="{% url 'editar_promocion_completa' promocion.promocion_id %}" class="btn btn-primary mb-3">Editar esta Promoción</a>
+
+    <div class="card mb-3">
+        <div class="card-header">Información General</div>
+        <div class="card-body">
+            <p><strong>Descripción:</strong> {{ promocion.descripcion|default:"N/A" }}</p>
+            <p><strong>Empresa:</strong> {{ promocion.empresa.nombre }}</p>
+            <p><strong>Sucursal Aplicable:</strong> {{ promocion.sucursal.nombre|default:"Todas" }}</p>
+            <p><strong>Canal Cliente Aplicable:</strong> {{ promocion.canal_cliente_aplicable.nombre|default:"Todos" }}</p>
+            <p><strong>Tipo Cliente:</strong> {{ promocion.get_tipo_cliente_display }}</p>
+            <p><strong>Tipo de Promoción:</strong> {{ promocion.get_tipo_display }}</p>
+            <p><strong>Aplica por:</strong> {{ promocion.get_aplica_por_display }}</p>
+            <p><strong>Escalonada:</strong> {{ promocion.es_escalonada|yesno:"Sí,No" }}</p>
+            {% if not promocion.es_escalonada and promocion.es_proporcional_directa %}
+            <p><strong>Proporcional Directa:</strong> Sí
+                {% if promocion.base_cantidad_proporcional_directa %}
+                    (Base Cantidad: {{ promocion.base_cantidad_proporcional_directa }})
+                {% elif promocion.base_monto_proporcional_directa %}
+                    (Base Monto: S/ {{ promocion.base_monto_proporcional_directa }})
+                {% endif %}
+            </p>
+            {% endif %}
+            <p><strong>Vigencia:</strong> {{ promocion.fecha_inicio|date:"d/m/Y" }} a {{ promocion.fecha_fin|date:"d/m/Y" }}</p>
+            <p><strong>Activa:</strong> {{ promocion.activa|yesno:"Sí,No" }}</p>
+            <p><strong>Prioridad:</strong> {{ promocion.prioridad }}</p>
+        </div>
+    </div>
+
+    {% if condiciones %}
+    <div class="card mb-3">
+        <div class="card-header">Condiciones</div>
+        <ul class="list-group list-group-flush">
+            {% for condicion in condiciones %}
+            <li class="list-group-item">
+                {% if condicion.articulo %}
+                    Artículo: {{ condicion.articulo.codigo_articulo }} - {{ condicion.articulo.descripcion }}
+                {% elif condicion.linea %}
+                    Línea: {{ condicion.linea.nombre }}
+                {% elif condicion.grupo %}
+                    Grupo: {{ condicion.grupo.nombre }}
+                {% else %}
+                    Condición general sobre los productos de la promoción.
+                {% endif %}
+                {% if condicion.cantidad_minima is not None %} | Cant. Mínima (para conjunto/no escal.): {{ condicion.cantidad_minima }} {% endif %}
+                {% if condicion.monto_minimo is not None %} | Monto Mínimo (para conjunto/no escal.): S/ {{ condicion.monto_minimo }} {% endif %}
+                {% if promocion.aplica_por == 'conjunto_obligatorio' and condicion.obligatoria_en_conjunto %} (Obligatoria en conjunto) {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if not promocion.es_escalonada and beneficios_directos %}
+    <div class="card mb-3">
+        <div class="card-header">Beneficios Directos</div>
+        <ul class="list-group list-group-flush">
+            {% for beneficio in beneficios_directos %}
+            <li class="list-group-item">
+                {{ beneficio.get_tipo_display }}:
+                {% if beneficio.tipo == 'bonificacion' and beneficio.articulo_bonificado %}
+                    {{ beneficio.cantidad_bonificada }} x {{ beneficio.articulo_bonificado.descripcion }}
+                {% elif beneficio.tipo == 'descuento' %}
+                    {{ beneficio.porcentaje_descuento }}% de descuento
+                {% endif %}
+            </li>
+            {% empty %}
+            <li class="list-group-item">No hay beneficios directos definidos.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if promocion.es_escalonada and escalas %}
+    <div class="card mb-3">
+        <div class="card-header">Escalas y sus Beneficios</div>
+        {% for escala in escalas %}
+        <div class="card-body border-bottom">
+            <h5>Escala: {{ escala.descripcion_escala|default:"Sin descripción" }}</h5>
+            <p>
+                {% if escala.desde_cantidad is not None %}Desde {{ escala.desde_cantidad }} unidades {% endif %}
+                {% if escala.hasta_cantidad is not None %}hasta {{ escala.hasta_cantidad }} unidades.{% else %}{% if escala.desde_cantidad is not None %}en adelante.{% endif %}{% endif %}
+                {% if escala.desde_monto is not None %}Desde S/ {{ escala.desde_monto }} {% endif %}
+                {% if escala.hasta_monto is not None %}hasta S/ {{ escala.hasta_monto }}.{% else %}{% if escala.desde_monto is not None %}en adelante.{% endif %}{% endif %}
+            </p>
+            {% if escala.proporcional %}
+            <p><strong>Proporcional en esta escala:</strong> Sí
+                {% if escala.base_cantidad_proporcional_escala %}
+                    (Base Cantidad: {{ escala.base_cantidad_proporcional_escala }})
+                {% elif escala.base_monto_proporcional_escala %}
+                    (Base Monto: S/ {{ escala.base_monto_proporcional_escala }})
+                {% endif %}
+            </p>
+            {% endif %}
+            <h6>Beneficios de esta escala:</h6>
+            <ul class="list-group">
+                {% for beneficio_escala in escala.beneficios.all %}
+                <li class="list-group-item list-group-item-light">
+                    {{ beneficio_escala.get_tipo_display }}:
+                    {% if beneficio_escala.tipo == 'bonificacion' and beneficio_escala.articulo_bonificado %}
+                        {{ beneficio_escala.cantidad_bonificada }} x {{ beneficio_escala.articulo_bonificado.descripcion }}
+                    {% elif beneficio_escala.tipo == 'descuento' %}
+                        {{ beneficio_escala.porcentaje_descuento }}% de descuento
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="list-group-item list-group-item-light">No hay beneficios definidos para esta escala.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <a href="{% url 'listar_promociones' %}" class="btn btn-secondary">← Volver al listado</a>
+</div>
+{% endblock %}

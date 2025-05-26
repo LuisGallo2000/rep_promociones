@@ -1,0 +1,279 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Crear Pedido{% endblock %}
+
+{% block head_extra %} {# Un nuevo bloque para CSS específico de la página si es necesario #}
+<style>
+    .autocomplete-suggestions {
+        border: 1px solid #ddd;
+        max-height: 150px;
+        overflow-y: auto;
+        position: absolute;
+        background-color: white;
+        z-index: 999;
+    }
+    .autocomplete-suggestion {
+        padding: 8px;
+        cursor: pointer;
+    }
+    .autocomplete-suggestion:hover {
+        background-color: #f0f0f0;
+    }
+    .autocomplete-active {
+        background-color: #e0e0e0;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Crear Nuevo Pedido</h2>
+
+    <form method="POST" id="pedidoForm">
+        {% csrf_token %}
+        
+        <div class="row">
+            {# Cliente, Canal, Sucursal selects se mantienen igual #}
+            <div class="col-md-4 mb-3">
+                <label for="cliente" class="form-label">Cliente:</label>
+                <select name="cliente" id="cliente" required class="form-select">
+                    <option value="">Seleccione un cliente</option>
+                    {% for cliente_obj in clientes %}
+                    <option value="{{ cliente_obj.cliente_id }}">{{ cliente_obj.nombres }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="canal_cliente" class="form-label">Canal:</label>
+                <select name="canal_cliente" id="canal_cliente" required class="form-select">
+                    <option value="">Seleccione un canal</option>
+                    {% for canal_obj in canales %}
+                    <option value="{{ canal_obj.canal_id }}">{{ canal_obj.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="sucursal" class="form-label">Sucursal:</label>
+                <select name="sucursal" id="sucursal" required class="form-select">
+                    <option value="">Seleccione una sucursal</option>
+                    {% for suc_obj in sucursales %}
+                    <option value="{{ suc_obj.sucursal_id }}">{{ suc_obj.empresa.nombre }} - {{ suc_obj.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <hr>
+        <h4>Artículos del Pedido</h4>
+        <div id="articulos-container" class="mb-3">
+            {# El primer item se renderiza aquí, los demás se clonan con JS #}
+            <div class="articulo-item row gx-2 gy-2 mb-2 align-items-center p-2 border rounded">
+                <div class="col-md-7">
+                    <label for="articulo_search_0" class="form-label">Buscar Artículo:</label>
+                    <input type="text" id="articulo_search_0" class="form-control articulo-search-input" placeholder="Escriba para buscar artículo...">
+                    <input type="hidden" name="articulo_pk[]" class="articulo-pk-input" required>
+                    <div class="autocomplete-suggestions-container" style="position: relative;"></div> {# Contenedor para las sugerencias #}
+                </div>
+                <div class="col-md-2">
+                    <label for="cantidad_0" class="form-label">Cantidad:</label>
+                    <input type="number" name="cantidad[]" id="cantidad_0" min="1" value="1" required class="form-control cantidad-articulo" placeholder="Cantidad"/>
+                </div>
+                <div class="col-md-2">
+                    <label for="subtotal_display_0" class="form-label">Subtotal:</label>
+                    <input type="text" id="subtotal_display_0" name="subtotal_linea_display[]" readonly class="form-control subtotal-linea-display" placeholder="Subtotal"/>
+                </div>
+                <div class="col-md-1 align-self-end"> {# Para alinear el botón abajo #}
+                    <button type="button" onclick="eliminarArticulo(this)" class="btn btn-sm btn-danger w-100 mt-3">X</button>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" onclick="agregarArticulo()" class="btn btn-outline-primary mb-3">Agregar Artículo</button>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-success">Guardar Pedido y Aplicar Promociones</button>
+            <a href="{% url 'listar_pedidos' %}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+
+    <template id="articulo-item-template">
+        <div class="articulo-item row gx-2 gy-2 mb-2 align-items-center p-2 border rounded">
+            <div class="col-md-7">
+                <label for="articulo_search___prefix__" class="form-label">Buscar Artículo:</label>
+                <input type="text" id="articulo_search___prefix__" class="form-control articulo-search-input" placeholder="Escriba para buscar artículo...">
+                <input type="hidden" name="articulo_pk[]" class="articulo-pk-input" required>
+                <div class="autocomplete-suggestions-container" style="position: relative;"></div>
+            </div>
+            <div class="col-md-2">
+                <label for="cantidad___prefix__" class="form-label">Cantidad:</label>
+                <input type="number" name="cantidad[]" id="cantidad___prefix__" min="1" value="1" required class="form-control cantidad-articulo" placeholder="Cantidad"/>
+            </div>
+            <div class="col-md-2">
+                <label for="subtotal_display___prefix__" class="form-label">Subtotal:</label>
+                <input type="text" id="subtotal_display___prefix__" name="subtotal_linea_display[]" readonly class="form-control subtotal-linea-display" placeholder="Subtotal"/>
+            </div>
+            <div class="col-md-1 align-self-end">
+                <button type="button" onclick="eliminarArticulo(this)" class="btn btn-sm btn-danger w-100 mt-3">X</button>
+            </div>
+        </div>
+    </template>
+
+</div> {# Fin container #}
+
+<script>
+let articuloItemCounter = 0; // Para generar IDs únicos para los inputs de búsqueda
+
+function calcularSubtotalLinea(itemRow) {
+    // Como no hay precios, el subtotal siempre será 0.00
+    // El data-precio ya no se usa si no hay precios.
+    const displaySubtotal = itemRow.querySelector('.subtotal-linea-display');
+    if (displaySubtotal) {
+        displaySubtotal.value = (0).toFixed(2);
+    }
+}
+
+function setupAutocomplete(searchInput, pkInput, suggestionsContainer) {
+    let debounceTimer;
+    searchInput.addEventListener('input', function(e) {
+        clearTimeout(debounceTimer);
+        const term = e.target.value;
+        suggestionsContainer.innerHTML = ''; // Limpiar sugerencias anteriores
+        pkInput.value = ''; // Limpiar el ID del artículo si el usuario está escribiendo de nuevo
+
+        if (term.length < 2) { // No buscar con menos de 2 caracteres
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            fetch(`{% url 'buscar_articulos_json' %}?term=${encodeURIComponent(term)}`)
+                .then(response => response.json())
+                .then(data => {
+                    suggestionsContainer.innerHTML = ''; // Limpiar por si acaso
+                    if (data.length > 0) {
+                        const ul = document.createElement('ul');
+                        ul.className = 'list-unstyled autocomplete-suggestions';
+                        data.forEach(item => {
+                            const li = document.createElement('li');
+                            li.textContent = item.text; // item.text es "E:empresa_id | codigo - descripcion"
+                            li.className = 'autocomplete-suggestion';
+                            li.addEventListener('click', function() {
+                                searchInput.value = item.text; // Poner el texto completo en el input
+                                pkInput.value = item.id;    // Guardar el ID del artículo en el hidden input
+                                suggestionsContainer.innerHTML = ''; // Limpiar sugerencias
+                                calcularSubtotalLinea(searchInput.closest('.articulo-item'));
+                            });
+                            ul.appendChild(li);
+                        });
+                        suggestionsContainer.appendChild(ul);
+                    } else {
+                        suggestionsContainer.innerHTML = '<div class="p-2 text-muted">No se encontraron artículos.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching articles:', error);
+                    suggestionsContainer.innerHTML = '<div class="p-2 text-danger">Error al buscar.</div>';
+                });
+        }, 300); // Espera 300ms después de que el usuario deja de escribir
+    });
+
+    // Opcional: cerrar sugerencias si se hace clic fuera
+    document.addEventListener('click', function(event) {
+        if (!searchInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
+            suggestionsContainer.innerHTML = '';
+        }
+    });
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    const primerItemRow = document.querySelector('#articulos-container .articulo-item');
+    if (primerItemRow) {
+        const searchInput = primerItemRow.querySelector('.articulo-search-input');
+        const pkInput = primerItemRow.querySelector('.articulo-pk-input');
+        const suggestionsContainer = primerItemRow.querySelector('.autocomplete-suggestions-container');
+        setupAutocomplete(searchInput, pkInput, suggestionsContainer);
+        
+        calcularSubtotalLinea(primerItemRow); // Subtotal será 0
+        // No necesitamos listeners en select, ya que no hay precios que cambien el subtotal
+        // primerItemRow.querySelector('.cantidad-articulo').addEventListener('input', function() { calcularSubtotalLinea(primerItemRow); });
+    }
+});
+
+function agregarArticulo() {
+    articuloItemCounter++;
+    const contenedor = document.getElementById("articulos-container");
+    const template = document.getElementById("articulo-item-template");
+    let nuevoItemHtml = template.innerHTML.replace(/__prefix__/g, articuloItemCounter);
+    
+    const divWrapper = document.createElement('div'); // Contenedor temporal para convertir string HTML a nodo
+    divWrapper.innerHTML = nuevoItemHtml;
+    const nuevoItem = divWrapper.firstElementChild; // El div.articulo-item
+
+    if (nuevoItem) {
+        const searchInput = nuevoItem.querySelector('.articulo-search-input');
+        const pkInput = nuevoItem.querySelector('.articulo-pk-input');
+        const suggestionsContainer = nuevoItem.querySelector('.autocomplete-suggestions-container');
+        
+        // Limpiar valores del template clonado
+        searchInput.value = '';
+        pkInput.value = '';
+        const cantidadInput = nuevoItem.querySelector('.cantidad-articulo');
+        if (cantidadInput) cantidadInput.value = 1;
+        
+        setupAutocomplete(searchInput, pkInput, suggestionsContainer);
+        
+        // Añadir listener para cantidad (aunque el subtotal sea 0, podría ser útil si añades precios después)
+        // const cantidadNuevo = nuevoItem.querySelector('.cantidad-articulo');
+        // if (cantidadNuevo) {
+        //     cantidadNuevo.addEventListener('input', function() { calcularSubtotalLinea(nuevoItem); });
+        // }
+        
+        contenedor.appendChild(nuevoItem);
+        calcularSubtotalLinea(nuevoItem);
+    } else {
+        console.error("No se pudo clonar el template del artículo correctamente.");
+    }
+}
+
+function eliminarArticulo(btn) {
+    const contenedor = document.getElementById("articulos-container");
+    if (contenedor.querySelectorAll('.articulo-item').length > 1) {
+        btn.closest('.articulo-item').remove();
+    } else {
+        alert("Debe haber al menos un artículo en el pedido.");
+    }
+}
+
+document.getElementById('pedidoForm').addEventListener('submit', function(event) {
+    // ... (tu validación existente, asegúrate que verifica articulo-pk-input) ...
+    const cliente = document.getElementById('cliente').value;
+    const canal = document.getElementById('canal_cliente').value;
+    const sucursal = document.getElementById('sucursal').value;
+    // Ahora validamos los hidden inputs que tienen el ID del artículo
+    const articulosPkInputs = document.querySelectorAll('input[name="articulo_pk[]"]');
+    const cantidadesInputs = document.querySelectorAll('input[name="cantidad[]"]');
+
+    if (!cliente || !canal || !sucursal) {
+        alert("Debe seleccionar un cliente, un canal y una sucursal.");
+        event.preventDefault(); return false;
+    }
+
+    let articuloValidoEncontrado = false;
+    for (let i = 0; i < articulosPkInputs.length; i++) {
+        // Un item es válido si tiene un articulo_pk y una cantidad positiva
+        if (articulosPkInputs[i].value && cantidadesInputs[i].value && parseInt(cantidadesInputs[i].value) >= 1) {
+            articuloValidoEncontrado = true;
+            break;
+        }
+    }
+
+    if (!articuloValidoEncontrado) {
+        alert("Debe agregar al menos un artículo válido (buscado y seleccionado) con cantidad positiva.");
+        event.preventDefault(); return false;
+    }
+    return true;
+});
+</script>
+{% endblock %}
