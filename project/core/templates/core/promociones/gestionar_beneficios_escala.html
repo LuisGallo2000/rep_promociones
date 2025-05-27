@@ -106,13 +106,8 @@
 </div>
 
 <script>
-// Reutilizar las funciones setupGenericAutocomplete, initializeFormsetSubForms (o una versión adaptada), 
-// toggleBeneficioFields y setupFormsetCloning del script de gestionar_promocion_completa.html.
-// Asegúrate de que los selectores y prefijos sean correctos para este formset.
 
-// Función genérica de autocompletar (COPIAR DE GESTIONAR_PROMOCION_COMPLETA.HTML)
 function setupGenericAutocomplete(formItem, searchInputClass, pkInputClass, suggestionsContainerClassSuffix, searchUrl) {
-    // ... (misma implementación que antes) ...
     const searchInput = formItem.querySelector('.' + searchInputClass);
     const pkInput = formItem.querySelector('.' + pkInputClass);
     const suggestionsContainer = searchInput ? searchInput.nextElementSibling : null; 
@@ -189,8 +184,7 @@ function initializeBeneficioEscalaForm(formItemElement) {
     }
 }
 
-function toggleBeneficioFields(formItem, tipoBeneficio) { // (COPIAR DE GESTIONAR_PROMOCION_COMPLETA.HTML)
-    // ... (misma implementación que antes) ...
+function toggleBeneficioFields(formItem, tipoBeneficio) { 
     const articuloFieldDiv = formItem.querySelector('.campo-articulo-bonificado');
     const cantidadFieldDiv = formItem.querySelector('.campo-cantidad-bonificada');
     const porcentajeFieldDiv = formItem.querySelector('.campo-porcentaje-descuento');
@@ -208,8 +202,7 @@ function toggleBeneficioFields(formItem, tipoBeneficio) { // (COPIAR DE GESTIONA
 }
 
 
-function setupFormsetCloning(containerId, addButtonId, templateId, formsetPrefix, initCallback) { // (COPIAR DE GESTIONAR_PROMOCION_COMPLETA.HTML)
-    // ... (misma implementación que antes, asegurándose que formsetPrefix sea el correcto) ...
+function setupFormsetCloning(containerId, addButtonId, templateId, formsetPrefix, initCallback) { 
     const container = document.getElementById(containerId);
     const addButton = document.getElementById(addButtonId);
     const templateElement = document.getElementById(templateId);
@@ -261,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'beneficios-escala-forms-container', 
         'add-beneficio-escala-form', 
         'empty-beneficio-escala-form-template', 
-        '{{ formset_beneficios_escala.prefix }}', // Asegúrate que este prefijo sea el del formset
+        '{{ formset_beneficios_escala.prefix }}',
         initializeBeneficioEscalaForm
     );
 });

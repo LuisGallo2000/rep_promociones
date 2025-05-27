@@ -130,7 +130,7 @@ function calcularSubtotalLinea(itemRow) {
     }
 }
 
-function setupAutocomplete(searchInput, pkInput, suggestionsContainer, itemRow) { // itemRow añadido como parámetro
+function setupAutocomplete(searchInput, pkInput, suggestionsContainer, itemRow) {
     let debounceTimer;
     searchInput.addEventListener('input', function(e) {
         clearTimeout(debounceTimer);
